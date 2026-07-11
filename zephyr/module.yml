@@ -1,0 +1,8 @@
+# Copyright (c) 2025 RobotPilots-SZU
+# SPDX-License-Identifier: Apache-2.0
+
+name: breeze-modules
+build:
+  # Application modules are Zephyr-bound; the build entry is the repo root.
+  cmake: .
+  kconfig: Kconfig

@@ -1,0 +1,18 @@
+# Copyright (c) 2025 RobotPilots-SZU
+# SPDX-License-Identifier: Apache-2.0
+
+config BREEZE_MODULE_CHASSIS
+	bool "Chassis module"
+	depends on MIDDLEWARE_PROTOCOL
+	depends on MIDDLEWARE_OSAL
+	help
+	  Chassis control module. Consumes chassis command topics, drives the
+	  chassis motors, and publishes chassis state.
+
+if BREEZE_MODULE_CHASSIS
+
+module = BREEZE_MODULE_CHASSIS
+module-str = breeze chassis
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # BREEZE_MODULE_CHASSIS

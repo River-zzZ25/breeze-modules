@@ -1,0 +1,19 @@
+# Copyright (c) 2025 RobotPilots-SZU
+# SPDX-License-Identifier: Apache-2.0
+
+config ZEPHYR_BREEZE_MODULES_MODULE
+	bool
+
+menuconfig BREEZE_MODULES
+	bool "Breeze application modules"
+	help
+	  Robot application modules (chassis, gimbal, ...) that communicate over
+	  zenoh topics and use the breeze-middleware protocol and OSAL.
+
+if BREEZE_MODULES
+
+rsource "modules/chassis/Kconfig"
+# rsource "modules/gimbal/Kconfig"
+# rsource "modules/shooter/Kconfig"
+
+endif # BREEZE_MODULES

@@ -1,0 +1,31 @@
+# ---- Build output ----
+build/
+build_*/
+out/
+cmake-build-*/
+
+# ---- Zephyr generated ----
+zephyr/module.yml.tmp
+.west/
+twister-out/
+twister-out.*/
+
+# ---- Compiled objects / binaries ----
+*.o
+*.obj
+*.a
+*.elf
+*.bin
+*.hex
+*.map
+*.d
+
+# ---- Editor / IDE ----
+.vscode/
+.idea/
+*.swp
+*~
+
+# ---- OS files ----
+.DS_Store
+Thumbs.db

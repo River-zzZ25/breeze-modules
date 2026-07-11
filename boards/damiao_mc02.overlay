@@ -1,0 +1,19 @@
+/*
+ * Copyright (c) 2025 RobotPilots-SZU
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Chassis device aliases for the damiao_mc02 board.
+ *
+ * Modules resolve devices via DEVICE_DT_GET(DT_ALIAS(chassis_fl)) etc.
+ * Point these aliases at the actual motor nodes once they are defined in the
+ * board/base device tree.
+ */
+
+/ {
+	aliases {
+		/* chassis-fl = &motor_fl; */
+		/* chassis-fr = &motor_fr; */
+		/* chassis-bl = &motor_bl; */
+		/* chassis-br = &motor_br; */
+	};
+};
