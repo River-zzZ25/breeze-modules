@@ -1,0 +1,11 @@
+# Copyright (c) 2026 RobotPilots-SZU
+# SPDX-License-Identifier: Apache-2.0
+
+config BREEZE_MODULE_REFEREE
+	bool "Referee module"
+	depends on CPP
+	depends on MULTITHREADING
+	select ZBUS
+	help
+	  Publishes referee game-state snapshots over zbus. Consumers attach
+	  their own static observers; ordinary listeners need no extra thread.
