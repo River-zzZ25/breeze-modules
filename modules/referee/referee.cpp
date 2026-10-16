@@ -4,10 +4,13 @@
  */
 #include "referee.hpp"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(referee);
+
 namespace breeze {
 namespace referee {
 
-static enum referee_info_type
+enum referee_info_type
 {
     REFEREE_GAME_STATE_INFO = 0,
     REFEREE_ROBOT_STATE_INFO,
