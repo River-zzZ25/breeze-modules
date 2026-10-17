@@ -20,9 +20,9 @@ namespace breeze::msgpipe
 {
     
 template<>
-struct pub<breeze::referee::messages::game_state_info>
+struct pub<breeze::referee::game_state_info>
 {
-    using Msg = breeze::referee::messages::game_state_info;
+    using Msg = breeze::referee::game_state_info;
     static void publish(const Msg& msg, k_timeout_t timeout)
     {
         zbus_chan_pub(&referee_game_state_chan, &msg, timeout);

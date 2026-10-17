@@ -7,7 +7,7 @@
 
 #include <zephyr/logging/log.h>
 
-using namespace breeze::referee::messages;
+using namespace breeze::referee;
 
 LOG_MODULE_REGISTER(referee);
 

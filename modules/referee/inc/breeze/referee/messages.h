@@ -12,11 +12,7 @@
 
 #include <cstdint>
 
-namespace breeze
-{
-namespace referee
-{
-namespace messages
+namespace breeze::referee
 {
 
 struct game_state_info 
@@ -88,6 +84,4 @@ struct player_info
     
 };
     
-}
-}
 }
