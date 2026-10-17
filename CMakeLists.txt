@@ -14,6 +14,7 @@ if(CONFIG_BREEZE_MODULES)
 
   zephyr_include_directories(include)
 
+  add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_MSGPIPE modules/msgpipe)
   add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_CHASSIS modules/chassis)
   add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_REFEREE modules/referee)
   # add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_GIMBAL  modules/gimbal)

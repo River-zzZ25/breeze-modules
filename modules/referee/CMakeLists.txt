@@ -7,4 +7,11 @@ file(GLOB REFEREE_SOURCES CONFIGURE_DEPENDS
     "src/*.cpp"
 )
 zephyr_library_sources(${REFEREE_SOURCES})
-zephyr_library_include_directories("inc")
+target_include_directories(breeze_module_referee
+    PUBLIC
+        "inc"
+)
+target_link_libraries(breeze_module_referee
+    INTERFACE
+        breeze_module_msgpipe
+)

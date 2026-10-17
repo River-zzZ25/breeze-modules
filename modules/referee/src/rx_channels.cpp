@@ -17,8 +17,3 @@ ZBUS_CHAN_DEFINE(referee_game_state_chan,
                 nullptr,
                 ZBUS_OBSERVERS_EMPTY,
                 ZBUS_MSG_INIT());
-
-namespace breeze::referee::messages
-{
-    
-}

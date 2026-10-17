@@ -1,0 +1,9 @@
+# Copyright (c) 2026 RobotPilots-SZU
+# SPDX-License-Identifier: Apache-2.0
+
+config BREEZE_MODULE_MSGPIPE
+	bool "message pipe wrapper and conventions (based on zbus)"
+	depends on CPP
+	select ZBUS
+	help
+	  Wrap zbus on cpp strong-typed and user-friendly functions
