@@ -11,10 +11,12 @@
 #pragma once
 
 #include <cstdint>
+#include <etl/span.h>
 
 namespace breeze::referee
 {
 
+#pragma region Rx Messages
 struct game_state_info 
 {
     // 0x0001 比赛状态
@@ -83,5 +85,13 @@ struct player_info
 {
     
 };
+
+#pragma endregion
+
+#pragma region Interface Messages
+
+using rx_in = etl::span<uint8_t>;
+
+#pragma endregion
     
 }

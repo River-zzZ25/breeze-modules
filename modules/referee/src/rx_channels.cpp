@@ -11,9 +11,11 @@ using namespace breeze::referee;
 
 LOG_MODULE_REGISTER(referee);
 
-ZBUS_CHAN_DEFINE(referee_game_state_chan,
-                game_state_info,
-                nullptr,
-                nullptr,
-                ZBUS_OBSERVERS_EMPTY,
-                ZBUS_MSG_INIT());
+ZBUS_CHAN_DEFINE(
+    referee_game_state_chan,
+    game_state_info,
+    nullptr,
+    nullptr,
+    ZBUS_OBSERVERS_EMPTY,
+    ZBUS_MSG_INIT()
+);
