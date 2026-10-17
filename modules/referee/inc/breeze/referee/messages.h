@@ -11,7 +11,6 @@
 #pragma once
 
 #include <cstdint>
-#include <etl/span.h>
 
 namespace breeze::referee
 {
@@ -85,12 +84,6 @@ struct player_info
 {
     
 };
-
-#pragma endregion
-
-#pragma region Interface Messages
-
-using rx_in = etl::span<uint8_t>;
 
 #pragma endregion
     
