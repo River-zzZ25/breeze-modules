@@ -12,6 +12,6 @@ target_include_directories(breeze_module_referee
         "inc"
 )
 target_link_libraries(breeze_module_referee
-    INTERFACE
+    PUBLIC
         breeze_module_msgpipe
 )
