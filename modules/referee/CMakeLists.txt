@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_library_named(breeze_module_referee)
-zephyr_library_sources(referee.cpp)
-
-# Allow consumers to include <modules/referee/referee.hpp>.
-zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../..)
+file(GLOB REFEREE_SOURCES CONFIGURE_DEPENDS
+    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    "src/*.cpp"
+)
+zephyr_library_sources(${REFEREE_SOURCES})
+zephyr_library_include_directories("inc")

@@ -1,14 +1,23 @@
-/*
- * Copyright (c) 2026 RobotPilots-SZU
- * SPDX-License-Identifier: Apache-2.0
+/**
+ * @file messages.h
+ * @author vix_hentx (w1084349470@outlook.com), river_zzz
+ * @brief 裁判系统模块bus消息
+ * @version 0.1
+ * @date 2026-10-16
+ * 
+ * @copyright Copyright (c) 2026
+ * 
  */
 #pragma once
 
 #include <cstdint>
-#include <zephyr/zbus/zbus.h>
 
-namespace breeze {
-namespace referee {
+namespace breeze
+{
+namespace referee
+{
+namespace messages
+{
 
 struct game_state_info 
 {
@@ -78,20 +87,7 @@ struct player_info
 {
     
 };
-
-/* Subscribers add their own ZBUS_LISTENER_DEFINE / ZBUS_CHAN_ADD_OBS
- * in their module source files. No runtime registration is required.
- */
-ZBUS_CHAN_DECLARE(game_state_chan);
-
-/* Publish a complete snapshot. Ordinary listeners run synchronously in the
- * publisher's context; timeout bounds the channel lock wait, not callback time.
- * Return the zbus publication result (0 on success, negative errno on failure).
- */
-int game_state_publish(const game_state_info& msg,
-                       k_timeout_t timeout = K_MSEC(100));
-
-int game_state_register();
-
-} /* namespace referee */
-} /* namespace breeze */
+    
+}
+}
+}
