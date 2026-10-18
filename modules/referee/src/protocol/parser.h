@@ -22,7 +22,7 @@ class StreamParser final
 {
 public:
     using Observer = etl::delegate<void(raw_package)>;
-    using RingBuffer = etl::circular_buffer_ext<uint8_t>;
+    using RingBuffer = etl::icircular_buffer<uint8_t>;
     using TmpBuffer = etl::span<uint8_t>;
 
     /**

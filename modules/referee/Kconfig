@@ -5,9 +5,48 @@ config BREEZE_MODULE_REFEREE
 	bool "Referee module"
 	depends on CPP
 	depends on MULTITHREADING
+	depends on UART_ASYNC_API
 	depends on BREEZE_MODULE_MSGPIPE
 	depends on ALGO
 	select ZBUS
 	help
 	  Publishes referee game-state snapshots over zbus. Consumers attach
 	  their own static observers; ordinary listeners need no extra thread.
+
+if BREEZE_MODULE_REFEREE
+
+config BREEZE_MODULE_REFEREE_SERIAL_BUFFER_SIZE
+	int "Referee Module serial (uart) buffer size (bytes)"
+	default 256
+	range 64 512
+	help
+	  Size for uart irq to storage data and handle in thread.
+	  Don't need too large.
+
+config BREEZE_MODULE_REFEREE_RING_BUF_SIZE
+	int "Referee Module ring buffer size (bytes)"
+	default 1024
+	range 320 2048
+	help
+	  Size of the ring buffer used by the referee module, in bytes.
+	  Must be a power-of-two-friendly value for the underlying
+	  ring buffer implementation.
+
+config BREEZE_MODULE_REFEREE_LINEAR_BUF_SIZE
+	int "Referee Module linear buffer size (bytes)"
+	default 512
+	range 320 1024
+	help
+	  Size of the linear (contiguous) buffer used by the referee
+	  module for assembling/serializing snapshots, in bytes.
+
+config BREEZE_MODULE_REFEREE_RX_THREAD_STACK_SIZE
+	int "Referee Module stack size of each thread (bytes)"
+	default 256
+	range 128 512
+
+config BREEZE_MODULE_REFEREE_RX_THREAD_PRIORITY
+	int "Referee Module priority level of each thread (bytes)"
+	default 5
+
+endif # BREEZE_MODULE_REFEREE

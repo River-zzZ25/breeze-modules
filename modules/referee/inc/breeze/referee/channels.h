@@ -17,15 +17,3 @@ ZBUS_CHAN_DECLARE(
 #pragma region Tx Messages
 
 #pragma endregion
-
-#pragma region Interface
-
-/**
- * @brief 裁判系统输入channel, 图传链路/裁判系统链路 的信息从device发到这里, 则会自动转发成上文的rx messages
- * 
- */
-ZBUS_CHAN_DECLARE(
-    referee_rx_in_chan
-);
-
-#pragma endregion
