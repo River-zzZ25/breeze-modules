@@ -6,6 +6,7 @@ config BREEZE_MODULE_REFEREE
 	depends on CPP
 	depends on MULTITHREADING
 	depends on BREEZE_MODULE_MSGPIPE
+	depends on ALGO
 	select ZBUS
 	help
 	  Publishes referee game-state snapshots over zbus. Consumers attach

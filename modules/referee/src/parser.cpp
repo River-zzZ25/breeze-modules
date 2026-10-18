@@ -7,13 +7,15 @@
 #include <etl/iterator.h>
 #include <etl/byte_stream.h>
 #include <cstdint>
-
+#include <robotpilots/algorithm/algo_crc.hpp>
 namespace breeze::referee
 {
 
-// TODO: 先声明一个crc, 后面修好algo了就用真的
-extern uint8_t calc_crc8(etl::span<const uint8_t> data);
-extern uint16_t calc_crc16(etl::span<const uint8_t> data);
+// 移植到具体CRC实现 (其实是命名太长了)
+static inline auto calc_crc8(etl::span<const uint8_t> data)
+{ return robotpilots::algorithm::Crc8Calculate(data); }
+static inline auto calc_crc16(etl::span<const uint8_t> data)
+{ return robotpilots::algorithm::Crc16Calculate(data); }
 
 constexpr auto header_size = sizeof(protocol::frame_header);
 constexpr auto tail_size = sizeof(uint16_t);

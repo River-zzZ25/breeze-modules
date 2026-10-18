@@ -14,4 +14,6 @@ target_include_directories(breeze_module_referee
 target_link_libraries(breeze_module_referee
     PUBLIC
         breeze_module_msgpipe
+    PRIVATE
+        robotpilots::algorithm
 )
