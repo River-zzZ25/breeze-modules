@@ -8,7 +8,6 @@ config BREEZE_MODULE_REFEREE
 	depends on UART_ASYNC_API
 	depends on BREEZE_MODULE_MSGPIPE
 	depends on ALGO
-	select ZBUS
 	help
 	  Publishes referee game-state snapshots over zbus. Consumers attach
 	  their own static observers; ordinary listeners need no extra thread.
