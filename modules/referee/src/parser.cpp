@@ -1,5 +1,6 @@
 #include "protocol/parser.h"
 #include "protocol/referee.h"
+#include "stats.h"
 #include <assert.h>
 #include <etl/algorithm.h>
 #include <etl/circular_buffer.h>
@@ -45,13 +46,18 @@ static iterator search_and_emit(
     );
 
     // 没找到sof, 全部数据都没用, 直接丢掉并退出.
-    if(sof == it_end)
-    {
-        it_next = it_end;
-        return it_end;
-    }
+	if(sof == it_end)
+	{
+		internal::stats::record(
+			internal::stats::event::parser_discard_bytes,
+			static_cast<uint32_t>(it_end - it_first)
+		);
+		it_next = it_end;
+		return it_end;
+	}
 
-    const size_t avail = static_cast<size_t>(it_end - sof);
+	const size_t avail = static_cast<size_t>(it_end - sof);
+	internal::stats::record(internal::stats::event::parser_sof_found);
 
     // 数据不够, 等待下次解析
     if(avail < header_size)
@@ -77,11 +83,13 @@ static iterator search_and_emit(
     };
 
     // 帧头有问题, 从下一个字节继续.
-    if(const auto crc = calc_crc8({buffer.begin(), buffer.begin() + header_size - 1});
-            crc != header.crc8)
-    {
-        it_next = sof + 1;
-        return it_next;
+	if(const auto crc = calc_crc8({buffer.begin(), buffer.begin() + header_size - 1});
+			crc != header.crc8)
+	{
+		internal::stats::record(internal::stats::event::parser_header_crc_error);
+		internal::stats::record(internal::stats::event::parser_discard_bytes);
+		it_next = sof + 1;
+		return it_next;
     }
 
     // 帧头没毛病, 数据不够, 丢掉sof前内容, 并结束解析.
@@ -93,9 +101,11 @@ static iterator search_and_emit(
 
     // 拷贝全包到线性数组以检查crc
     const size_t max_data = buffer.size() - header_size - cmd_size - tail_size;
-    if (header.data_length > max_data) {
-        it_next = sof + 1;
-        return it_next;
+	if (header.data_length > max_data) {
+		internal::stats::record(internal::stats::event::parser_length_error);
+		internal::stats::record(internal::stats::event::parser_discard_bytes);
+		it_next = sof + 1;
+		return it_next;
     }
 
     etl::copy(sof + header_size, sof + header_size + cmd_size + header.data_length + tail_size, buffer.begin() + header_size);
@@ -108,11 +118,16 @@ static iterator search_and_emit(
     const auto tail_crc = *tail_reader.read<uint16_t>();
 
     // 尾部crc不对, 直接丢掉解析过的东西
-    if(const auto crc = calc_crc16({buffer.begin(), buffer.begin() + header_size + cmd_size + header.data_length});
-        crc != tail_crc)
-    {
-        it_next = sof + header_size + cmd_size + header.data_length + tail_size;
-        return it_next;
+	if(const auto crc = calc_crc16({buffer.begin(), buffer.begin() + header_size + cmd_size + header.data_length});
+		crc != tail_crc)
+	{
+		internal::stats::record(internal::stats::event::parser_frame_crc_error);
+		internal::stats::record(
+			internal::stats::event::parser_discard_bytes,
+			static_cast<uint32_t>(header_size + cmd_size + header.data_length + tail_size)
+		);
+		it_next = sof + header_size + cmd_size + header.data_length + tail_size;
+		return it_next;
     }
     
     // 尾部crc也对, 数据有效, 允许起飞, 并且不再解析这些内容.
@@ -133,7 +148,9 @@ static iterator search_and_emit(
         }
     };
 
-    on_next(pkg);
+	on_next(pkg);
+	internal::stats::record(internal::stats::event::parser_frames_ok);
+	internal::stats::record(internal::stats::event::raw_packages_emitted);
 
     it_next = sof + header_size + cmd_size + header.data_length + tail_size;
     return it_next;

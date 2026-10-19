@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "internal.h"
+#include "stats.h"
 
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
@@ -72,10 +73,18 @@ static void uart_cb(const device *dev, uart_event *evt, void *user_data)
 			break;
 		case UART_RX_RDY: {
 			RxMessage message { .len = evt->data.rx.len };
+			stats::record(stats::event::rx_chunks);
+			stats::record(stats::event::rx_bytes, message.len);
 			std::memcpy(message.data, evt->data.rx.buf + evt->data.rx.offset, message.len);
-			k_msgq_put(context.queue, &message, K_NO_WAIT);
+			if (k_msgq_put(context.queue, &message, K_NO_WAIT) != 0)
+			{
+				stats::record(stats::event::rx_queue_full);
+			}
 			break;
 		}
+		case UART_RX_STOPPED:
+			stats::record(stats::event::rx_uart_stopped);
+			break;
 		default:
 			break;
 	}

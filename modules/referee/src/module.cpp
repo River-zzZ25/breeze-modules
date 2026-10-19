@@ -11,6 +11,7 @@
 #include "breeze/referee/module.h"
 #include "protocol/parser.h"
 #include "internal.h"
+#include "stats.h"
 
 #include <etl/array.h>
 #include <etl/circular_buffer.h>
@@ -38,6 +39,8 @@ StreamParser mk_parser(CompoundBuffer& buf)
 
 bool init(etl::optional<const device*> referee_uart, etl::optional<const device*> vt_uart)
 {
+	internal::stats::init();
+
 	if (referee_uart.has_value())
 	{
 		referee_parser.emplace(mk_parser(referee_buf));

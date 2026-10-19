@@ -11,6 +11,7 @@
 
 
 #include <zephyr/zbus/zbus.h>
+#include <utility>
 namespace breeze::msgpipe
 {
 
