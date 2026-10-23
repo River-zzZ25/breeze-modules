@@ -36,6 +36,10 @@ StreamParser mk_parser(CompoundBuffer& buf)
 		etl::make_delegate<internal::on_raw_package>()
 	};
 }
+}
+
+namespace breeze::referee
+{
 
 bool init(etl::optional<const device*> referee_uart, etl::optional<const device*> vt_uart)
 {
@@ -43,17 +47,16 @@ bool init(etl::optional<const device*> referee_uart, etl::optional<const device*
 
 	if (referee_uart.has_value())
 	{
-		referee_parser.emplace(mk_parser(referee_buf));
-		auto ok = internal::start_uart(*referee_uart, referee_parser.value(), false);
+		internal::referee_parser.emplace(mk_parser(internal::referee_buf));
+		auto ok = internal::start_uart(*referee_uart, internal::referee_parser.value(), false);
 		if (!ok) return false;
 	}
 	if (vt_uart.has_value())
 	{
-		vt_parser.emplace(mk_parser(vt_buff));
-		auto ok = internal::start_uart(*vt_uart, vt_parser.value(), true);
+		internal::vt_parser.emplace(internal::mk_parser(internal::vt_buff));
+		auto ok = internal::start_uart(*vt_uart, internal::vt_parser.value(), true);
 		if (!ok) return false;
 	}
 	return true;
 }
-
 }

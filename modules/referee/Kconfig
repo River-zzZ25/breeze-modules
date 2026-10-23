@@ -41,8 +41,8 @@ config BREEZE_MODULE_REFEREE_LINEAR_BUF_SIZE
 
 config BREEZE_MODULE_REFEREE_RX_THREAD_STACK_SIZE
 	int "Referee Module stack size of each thread (bytes)"
-	default 256
-	range 128 512
+	default 512
+	range 128 1024
 
 config BREEZE_MODULE_REFEREE_RX_THREAD_PRIORITY
 	int "Referee Module priority level of each thread (bytes)"

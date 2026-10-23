@@ -7,8 +7,12 @@
 
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/linker/section_tags.h>
 
 #include <cstring>
+
+LOG_MODULE_DECLARE(referee);
 
 namespace breeze::referee::internal
 {
@@ -103,17 +107,26 @@ static bool start_uart_channel(
 	context.parser = &parser;
 	context.next_buffer = 1U;
 
-	if(auto ret = uart_callback_set(context.uart, uart_cb, &context); ret!=0)
+	if (auto ret = uart_callback_set(context.uart, uart_cb, &context); ret != 0)
+	{
+		LOG_ERR("referee UART callback setup failed (%d)", ret);
 		return false;
+	}
 
 	if(auto ret = uart_rx_enable(context.uart, context.dma_buffers[0],
 			   sizeof(context.dma_buffers[0]), 0); ret !=0)
+	{
+		LOG_ERR("referee UART RX enable failed (%d)", ret);
 		return false;
+	}
 
-	if(auto ret = k_thread_create(&thread, stack, stack_size, rx_handler, &context,
+	if (k_thread_create(&thread, stack, stack_size, rx_handler, &context,
 			nullptr, nullptr, CONFIG_BREEZE_MODULE_REFEREE_RX_THREAD_PRIORITY,
-			0, K_NO_WAIT); ret != 0)
+			0, K_NO_WAIT) == nullptr)
+	{
+		LOG_ERR("referee RX thread creation failed");
 		return false;
+	}
 
 	return true;
 }
