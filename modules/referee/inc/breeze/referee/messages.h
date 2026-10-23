@@ -67,10 +67,11 @@ struct game_state_info
 
     // 仅 RMUL 适用
     bool ally_supply_occ_rmul;                  // 己方补给区的占领状态，1 为已占领（仅 RMUL 适用）
-    uint8_t ally_outpost_buff_occ_rmul;         /* 己方前哨站增益点的占领状态（仅 RMUL 适用）
+    uint8_t ally_center_buff_occ_rmul;          /* 中心增益点的占领状态（仅 RMUL 适用）
                                                    0 为未被占领
                                                    1 为被己方占领
-                                                   2 为被对方占领 */
+                                                   2 为被对方占领 
+                                                   3 为被双方占领 */
 
     // 0x0105 飞镖发射
     uint8_t ally_dart_remaining_time;           // 己方飞镖发射剩余时间 单位：秒
@@ -96,8 +97,8 @@ struct robot_state_info
     // 0x0201 机器人性能体系数据
     uint8_t  robot_id;                      // 本机器人ID                      
     uint8_t  robot_level;                   // 机器人等级
-    uint16_t current_HP;                    // 机器人当前血量
-    uint16_t maximum_HP;                    // 机器人血量上限
+    uint16_t current_hp;                    // 机器人当前血量
+    uint16_t maximum_hp;                    // 机器人血量上限
 
     // 0x0203 机器人位置数据
     float x;                                // 本机器人位置 x 坐标，单位：m
@@ -118,7 +119,7 @@ struct robot_state_info
 
     // 0x0206 伤害状态数据
     uint8_t armor_id;                       // 扣血装甲/测速模块 ID
-    uint8_t HP_deduction_reason;            // 血量变化类型，详见协议枚举
+    uint8_t hp_deduction_reason;            // 血量变化类型，详见协议枚举
 
     // 0x0208 允许发弹量与剩余金币
     uint16_t remaining_gold_coin;           // 剩余金币数量
@@ -246,21 +247,21 @@ struct sentry_only_info
 };
 
 // 自定义控制器信息
-struct custom_controller_info
+struct custom_controller_rx_info
 {
     // 0x0302 自定义控制器 -> 机器人（图传）
-    uint8_t data[30];    // 自定义数据
+    uint8_t custom_controller_data[30];    // 自定义数据
 };
 
 // 自定义客户端信息
-struct custom_client_info
+struct custom_client_rx_info
 {
-    // 0x0310 机器人 -> 自定义客户端（图传）
-    uint8_t data[300];    // 自定义数据
+    // 0x0311 自定义客户端 -> 机器人（图传）
+    uint8_t custom_client_data[30];    // 自定义数据
 };
 
 // 选手端信息
-struct player_client_info
+struct player_client_rx_info
 {
     // 0x0303 选手端 -> 机器人（图传）
     float target_position_x;    // 目标位置 x 轴坐标
@@ -268,7 +269,29 @@ struct player_client_info
     uint8_t cmd_keyboard;       // 云台手按下的键盘按键通用键值
     uint8_t target_robot_id;    // 对方机器人 ID
     uint16_t cmd_source;        // 信息来源 ID
+};
 
+#pragma endregion
+
+#pragma region Tx Messages
+
+// 自定义控制器信息
+struct custom_controller_tx_info
+{
+    // 0x0309 机器人 -> 自定义控制器（图传）
+    uint8_t custom_controller_data[30];    // 自定义数据
+};
+
+// 自定义客户端信息
+struct custom_client_tx_info
+{
+    // 0x0310 机器人 -> 自定义客户端（图传）
+    uint8_t data_tx[300];    // 自定义数据
+};
+
+// 选手端信息
+struct player_client_tx_info
+{
     // 0x0308 机器人 -> 选手端（图传）
     uint16_t sender_id;         // 发送者的 ID
     uint16_t receiver_id;       // 接收者的 ID
