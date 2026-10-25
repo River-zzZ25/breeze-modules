@@ -8,7 +8,7 @@
 #include <etl/iterator.h>
 #include <etl/byte_stream.h>
 #include <cstdint>
-#include <robotpilots/algorithm/algo_crc.hpp>
+#include <robotpilots/algorithm/crc.hpp>
 namespace breeze::referee
 {
 
