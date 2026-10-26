@@ -11,7 +11,10 @@
 
 #pragma once
 
+#include "id.hpp"
 #include "unit.hpp"
+#include "utils.hpp"
+#include <array>
 #include <cstdint>
 
 namespace breeze::models
@@ -82,6 +85,14 @@ struct AmmoType
 };
 
 /**
+ * @brief 机器人等级
+ */
+struct LevelType
+{
+	std::uint8_t Value;
+};
+
+/**
  * @brief 平面坐标
  * @note 场地围挡在红方补给站附近的交点为坐标原点, 沿场地长边向蓝方为 X 轴正方向, 沿场地短边
 向红方停机坪为 Y 轴正方向.
@@ -115,18 +126,9 @@ enum class DamageSource : std::uint8_t
 	Projectile,    ///< 装加班被弹丸击打
 	ModuleOffline, ///< 模块离线
 	Collision,     ///< 装加班被肘击
-};
-
-/**
- * @brief 单个机器人的状态集合
- * @note 本来计划是想像自定义客户端那样搞偏函数+组件的, 觉得在电控上没必要, 大结构体应该够了
- *
- */
-struct RobotState
-{
-	HealthType Health;  ///< 当前血量
-	HeatType MaxHealth; ///< 最大血量
-	AmmoType Ammo;      ///< 剩余发单量
+	OverSpeed,     ///< 超弹速
+	OverHeat,      ///< 超热量
+	PowerOverload  ///< 超功率
 };
 
 /**
@@ -146,5 +148,95 @@ struct Logistics
 {
 	EconomyType Economy; ///< 金币
 };
+
+/**
+ * @brief 能量机关激活状态
+ */
+enum class RuneState : std::uint8_t
+{
+	Inactive,   ///< 未激活
+	Activated,  ///< 已激活
+	Activating, ///< 激活中
+};
+
+/**
+ * @brief 场地占领状态
+ */
+enum class FieldOccupation : std::uint8_t
+{
+	None,  ///< 无占领
+	Ally,  ///< 我方占领
+	Enemy, ///< 敌方占领
+	Both,  ///< 双方占领
+};
+
+/**
+ * @brief 飞镖目标
+ */
+enum class DartTarget : std::uint8_t
+{
+	None,             ///< 无目标
+	Outpost,          ///< 前哨站
+	BaseFixed,        ///< 基地固定
+	BaseRandomFixed,  ///< 基地随机固定
+	BaseRandomMoving, ///< 基地随机移动
+	BaseEndMoving,    ///< 基地末端移动
+};
+
+/**
+ * @brief 有血量的机器人索引表
+ *
+ */
+constexpr auto HEALTH_ROBOT_IDS = []() constexpr {
+	using enum RobotShortId;
+	return std::array{Hero1, Juggernaut1, Engineer2, Infantry3, Infantry4, Sentry6};
+}();
+
+/**
+ * @brief 机器人的血量集合
+ *
+ */
+struct RobotHealths : IndexedEnumArray<RobotShortId, HealthType, HEALTH_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+
+/**
+ * @brief 有发单量的机器人索引表
+ *
+ */
+constexpr auto AMMO_ROBOT_IDS = []() constexpr {
+	using enum RobotShortId;
+	return std::array{Hero1, Juggernaut1, Infantry3, Infantry4, Sentry6, Drone7};
+}();
+
+/**
+ * @brief 机器人的发单量集合
+ *
+ */
+struct RobotAmmos : IndexedEnumArray<RobotShortId, AmmoType, AMMO_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+
+constexpr auto LEVEL_ROBOT_IDS = []() constexpr {
+	using enum RobotShortId;
+	return std::array{Hero1, Juggernaut1, Engineer2, Infantry3, Infantry4, Sentry6, Drone7};
+}();
+/**
+ * @brief 机器人的等级集合
+ *
+ */
+struct RobotLevels : IndexedEnumArray<RobotShortId, LevelType, LEVEL_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+
+/**
+ * @brief 有热量的机器人索引表
+ *
+ */
+constexpr auto HEAT_ROBOT_IDS = AMMO_ROBOT_IDS;
+
+/**
+ * @brief 机器人的热量集合
+ *
+ */
+struct RobotHeats : IndexedEnumArray<RobotShortId, HealthType, AMMO_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
 
 } // namespace breeze::models

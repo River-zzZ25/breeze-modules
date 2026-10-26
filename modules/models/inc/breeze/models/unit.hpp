@@ -26,6 +26,33 @@ struct Percentage
 };
 
 /**
+ * @brief 时间, 单位秒
+ */
+template <typename T>
+struct Seconds
+{
+	T Value;
+};
+
+/**
+ * @brief 能量，单位焦耳
+ */
+template <typename T>
+struct Joule
+{
+	T Value;
+};
+
+/**
+ * @brief 功率, 单位瓦特
+ */
+template <typename T>
+struct Watt
+{
+	T Value;
+};
+
+/**
  * @brief 角度. 不加说明则规定为顺时针转动, 范围 0~360度.
  *
  * @tparam T
