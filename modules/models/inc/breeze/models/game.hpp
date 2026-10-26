@@ -9,6 +9,8 @@
  *
  */
 
+#pragma once
+
 #include "unit.hpp"
 #include <cstdint>
 
