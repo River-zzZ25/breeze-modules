@@ -71,6 +71,27 @@ struct HeatType
 };
 
 /**
+ * @brief 发弹量类型
+ *
+ */
+struct AmmoType
+{
+	uint16_t Value;
+};
+
+/**
+ * @brief 平面坐标
+ * @note 场地围挡在红方补给站附近的交点为坐标原点, 沿场地长边向蓝方为 X 轴正方向, 沿场地短边
+向红方停机坪为 Y 轴正方向.
+ *
+ */
+struct Position
+{
+	float X;
+	float Y;
+};
+
+/**
  * @brief 增益/减益
  * @note 这个不是符(能量机关).
  *
@@ -101,8 +122,27 @@ enum class DamageSource : std::uint8_t
  */
 struct RobotState
 {
-	HealthType Health;
-	HeatType MaxHealth;
+	HealthType Health;  ///< 当前血量
+	HeatType MaxHealth; ///< 最大血量
+	AmmoType Ammo;      ///< 剩余发单量
+};
+
+/**
+ * @brief 经济(金币)单位
+ *
+ */
+struct EconomyType
+{
+	std::uint16_t Value;
+};
+
+/**
+ * @brief 后勤信息 (队伍的经济, 加密等级等等队伍级别属性)
+ *
+ */
+struct Logistics
+{
+	EconomyType Economy; ///< 金币
 };
 
 } // namespace breeze::models
