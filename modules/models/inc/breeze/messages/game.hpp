@@ -27,7 +27,7 @@ namespace breeze::models::messages
  */
 struct GameState
 {
-	GameType Type;                 ///< 比赛类型
+	GameMode Mode;                 ///< 比赛类型
 	GameStage Stage;               ///< 比赛阶段
 	Seconds<std::uint16_t> Remain; ///< 当前阶段剩余时间
 };
@@ -96,8 +96,8 @@ using models::RobotBuffs;
  */
 struct LogisticsInfo
 {
-	EconomyType Economy;     ///< 金币
-	LevelType CryptionLevel; ///< 加密等级(对方干扰波难度等级)
+	Economy Economy;     ///< 金币
+	Level CryptionLevel; ///< 加密等级(对方干扰波难度等级)
 };
 
 /**
@@ -197,8 +197,8 @@ struct DamageEvent
  */
 struct ShootEvent
 {
-	Hertz<std::uint8_t> Freq;  ///< 弹速 (单位赫兹)
-	Meter<float> InitialSpeed; ///< 射击初速度 (m/s)
+	Hertz<std::uint8_t> Freq; ///< 弹速 (单位赫兹)
+	BulletSpeed InitialSpeed; ///< 射击初速度 (m/s)
 };
 
 #pragma endregion
