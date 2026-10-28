@@ -75,6 +75,27 @@ struct Radian
 };
 
 /**
+ * @brief 赫兹. 频率单位 (次/秒).
+ *
+ */
+template <typename T>
+struct Hertz
+{
+	T Value;
+};
+
+/**
+ * @brief 米. 距离单位
+ *
+ * @tparam T
+ */
+template <typename T>
+struct Meter
+{
+	T Value;
+};
+
+/**
  * @brief 2D史亮
  *
  */
@@ -93,5 +114,16 @@ struct Vec3
 {
 	T X, Y, Z;
 };
+
+/**
+ * @brief Unix时间戳
+ *
+ */
+struct TimeStamp
+{
+	std::uint64_t Value;
+};
+
+// TODO: 常量转换函数
 
 } // namespace breeze::models

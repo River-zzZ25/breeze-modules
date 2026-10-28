@@ -72,7 +72,7 @@ struct HealthType
  */
 struct HeatType
 {
-	uint16_t Value;
+	std::uint16_t Value;
 };
 
 /**
@@ -81,7 +81,16 @@ struct HeatType
  */
 struct AmmoType
 {
-	uint16_t Value;
+	std::uint16_t Value;
+};
+
+/**
+ * @brief 弹速类型
+ *
+ */
+struct BulletSpeedType
+{
+	float Value;
 };
 
 /**
@@ -93,15 +102,15 @@ struct LevelType
 };
 
 /**
- * @brief 平面坐标
+ * @brief 机器人位姿信息 (2D)
  * @note 场地围挡在红方补给站附近的交点为坐标原点, 沿场地长边向蓝方为 X 轴正方向, 沿场地短边
 向红方停机坪为 Y 轴正方向.
  *
  */
-struct Position
+struct Pose
 {
-	float X;
-	float Y;
+	Vec2<float> Pos;           ///< 平面坐标
+	Degree<float> Orientation; ///< 朝向. 正北(地图y+)为0度, 正向为顺时针, 范围 0~360
 };
 
 /**
@@ -141,15 +150,6 @@ struct EconomyType
 };
 
 /**
- * @brief 后勤信息 (队伍的经济, 加密等级等等队伍级别属性)
- *
- */
-struct Logistics
-{
-	EconomyType Economy; ///< 金币
-};
-
-/**
  * @brief 能量机关激活状态
  */
 enum class RuneState : std::uint8_t
@@ -169,6 +169,35 @@ enum class FieldOccupation : std::uint8_t
 	Enemy, ///< 敌方占领
 	Both,  ///< 双方占领
 };
+/**
+ * @brief 场地类型
+ * @note 这会随赛季变更, 记得维护
+ *
+ */
+enum class FieldType : std::uint8_t
+{
+	Base,                  ///< 基地增益点
+	CentralHighland,       ///< 中央高地增益点
+	TrapezoidHighland,     ///< 梯形高地增益点
+	LaunchRampBefore,      ///< 飞坡前地形跨越增益点
+	LaunchRampAfter,       ///< 飞坡后地形跨越增益点
+	CentralHighlandBelow,  ///< 中央高地下方地形跨越增益点
+	CentralHighlandAbove,  ///< 中央高地上方地形跨越增益点
+	RoadBelow,             ///< 公路下方地形跨越增益点
+	RoadAbove,             ///< 公路上方地形跨越增益点
+	Fortress,              ///< 堡垒增益点
+	Outpost,               ///< 前哨站增益点
+	Resupply,              ///< 与资源区不重叠的补给区/RMUL 补给区
+	ResourceResupply,      ///< 与资源区重叠的补给区
+	Assembly,              ///< 装配增益点
+	Center,                ///< 中心增益点（仅 RMUL 适用）
+	TunnelRoadBelow,       ///< 公路区下方隧道地形跨越增益点
+	TunnelRoadMiddle,      ///< 公路区中间隧道地形跨越增益点
+	TunnelRoadAbove,       ///< 公路区上方隧道地形跨越增益点
+	TunnelTrapezoidBelow,  ///< 梯形高地较低处隧道地形跨越增益点
+	TunnelTrapezoidMiddle, ///< 梯形高地中间隧道地形跨越增益点
+	TunnelTrapezoidAbove,  ///< 梯形高地较高处隧道地形跨越增益点
+};
 
 /**
  * @brief 飞镖目标
@@ -182,6 +211,25 @@ enum class DartTarget : std::uint8_t
 	BaseRandomMoving, ///< 基地随机移动
 	BaseEndMoving,    ///< 基地末端移动
 };
+
+/**
+ * @brief 烧饼姿态
+ *
+ */
+enum class SentryStance : std::uint8_t
+{
+	Offensive, ///< 进攻姿态
+	Defensive, ///< 防御姿态
+	Mobile     ///< 移动姿态
+};
+/**
+ * @brief 烧饼姿态枚举集合
+ *
+ */
+constexpr auto SENTRY_STANCES = []() {
+	using enum SentryStance;
+	return std::array{Offensive, Defensive, Mobile};
+}();
 
 /**
  * @brief 有血量的机器人索引表
@@ -236,7 +284,77 @@ constexpr auto HEAT_ROBOT_IDS = AMMO_ROBOT_IDS;
  * @brief 机器人的热量集合
  *
  */
-struct RobotHeats : IndexedEnumArray<RobotShortId, HealthType, AMMO_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+struct RobotHeats : IndexedEnumArray<RobotShortId, HeatType, HEAT_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+
+/**
+ * @brief 有弹速的机器人索引表
+ *
+ */
+constexpr auto BULLET_SPEED_ROBOT_IDS = AMMO_ROBOT_IDS;
+/**
+ * @brief 机器人弹速集合
+ *
+ */
+struct RobotBulletSpeeds
+    : IndexedEnumArray<RobotShortId, BulletSpeedType, BULLET_SPEED_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+
+/**
+ * @brief 地面机器人集合
+ *
+ */
+constexpr auto GROUND_ROBOT_IDS = []() {
+	using enum RobotShortId;
+	return std::array{Hero1, Juggernaut1, Engineer2, Infantry3, Infantry4, Sentry6};
+}();
+/**
+ * @brief 有功率限制的机器人集合
+ *
+ */
+constexpr auto POWER_ROBOT_IDS = GROUND_ROBOT_IDS;
+/**
+ * @brief 机器人功率集合
+ *
+ */
+struct RobotPowers : IndexedEnumArray<RobotShortId, Watt<std::uint8_t>, POWER_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+
+/**
+ * @brief 有坐标的机器人索引表
+ * @note 目前假设是所有机器人, 后续会改成根据比赛中实际存在的兵种调整
+ *
+ */
+constexpr auto POSE_ROBOT_IDS = ROBOT_SHORT_ID_VALUES;
+
+struct RobotPoses : IndexedEnumArray<RobotShortId, Pose, POSE_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+
+/**
+ * @brief 有Buff的机器人索引表
+ * @note 目前假设是所有机器人, 后续会改成根据比赛中实际存在的兵种调整
+ *
+ */
+constexpr auto BUFF_ROBOT_IDS = ROBOT_SHORT_ID_VALUES;
+
+/**
+ * @brief 机器人Buff集合
+ *
+ */
+struct RobotBuffs : IndexedEnumArray<RobotShortId, Buffs, BUFF_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+/**
+ * @brief 机器人脱战状态集合 (true表示脱战)
+ *
+ */
+struct RobotOutofCombats : IndexedEnumArray<RobotShortId, bool, BUFF_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+{};
+
+/**
+ * @brief 烧饼姿态持续时间集合
+ *
+ */
+struct SentryStanceDurations : IndexedEnumArray<SentryStance, Seconds<std::uint8_t>, SENTRY_STANCES, SENTRY_STANCES>
 {};
 
 } // namespace breeze::models
