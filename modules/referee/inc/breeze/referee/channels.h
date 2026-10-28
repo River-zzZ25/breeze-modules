@@ -8,37 +8,21 @@
 
 #pragma region Rx Messages
 
-ZBUS_CHAN_DECLARE(
-    referee_game_state_chan
-);
+ZBUS_CHAN_DECLARE(refereeGameStateChan);
 
-ZBUS_CHAN_DECLARE(
-    referee_robot_state_chan
-);
+ZBUS_CHAN_DECLARE(refereeRobotStateChan);
 
-ZBUS_CHAN_DECLARE(
-    referee_chassis_state_chan
-);
+ZBUS_CHAN_DECLARE(refereeChassisStateChan);
 
-ZBUS_CHAN_DECLARE(
-    referee_shooter_state_chan
-);
+ZBUS_CHAN_DECLARE(refereeShooterStateChan);
 
-ZBUS_CHAN_DECLARE(
-    referee_sentry_only_chan
-);
+ZBUS_CHAN_DECLARE(refereeSentryOnlyChan);
 
-ZBUS_CHAN_DECLARE(
-    referee_custom_controller_rx_chan
-);
+ZBUS_CHAN_DECLARE(refereeCustomControllerRxChan);
 
-ZBUS_CHAN_DECLARE(
-    referee_custom_client_rx_chan
-);
+ZBUS_CHAN_DECLARE(refereeCustomClientRxChan);
 
-ZBUS_CHAN_DECLARE(
-    referee_player_client_rx_chan
-);
+ZBUS_CHAN_DECLARE(refereePlayerClientRxChan);
 
 #pragma endregion
 

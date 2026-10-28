@@ -13,84 +13,80 @@ namespace breeze::referee::internal::stats
 
 #ifdef CONFIG_STATS
 STATS_SECT_START(referee_stats)
-	STATS_SECT_ENTRY(rx_bytes)
-	STATS_SECT_ENTRY(rx_chunks)
-	STATS_SECT_ENTRY(rx_queue_full)
-	STATS_SECT_ENTRY(rx_uart_stopped)
-	STATS_SECT_ENTRY(parser_sof_found)
-	STATS_SECT_ENTRY(parser_header_crc_error)
-	STATS_SECT_ENTRY(parser_length_error)
-	STATS_SECT_ENTRY(parser_frame_crc_error)
-	STATS_SECT_ENTRY(parser_frames_ok)
-	STATS_SECT_ENTRY(parser_discard_bytes)
-	STATS_SECT_ENTRY(raw_packages_emitted)
+STATS_SECT_ENTRY(RxBytes)
+STATS_SECT_ENTRY(RxChunks)
+STATS_SECT_ENTRY(RxQueueFull)
+STATS_SECT_ENTRY(RxUartStopped)
+STATS_SECT_ENTRY(ParserSofFound)
+STATS_SECT_ENTRY(ParserHeaderCrcError)
+STATS_SECT_ENTRY(ParserLengthError)
+STATS_SECT_ENTRY(ParserFrameCrcError)
+STATS_SECT_ENTRY(ParserFramesOk)
+STATS_SECT_ENTRY(ParserDiscardBytes)
+STATS_SECT_ENTRY(RawPackagesEmitted)
 STATS_SECT_END;
 
 STATS_NAME_START(referee_stats)
-	STATS_NAME(referee_stats, rx_bytes)
-	STATS_NAME(referee_stats, rx_chunks)
-	STATS_NAME(referee_stats, rx_queue_full)
-	STATS_NAME(referee_stats, rx_uart_stopped)
-	STATS_NAME(referee_stats, parser_sof_found)
-	STATS_NAME(referee_stats, parser_header_crc_error)
-	STATS_NAME(referee_stats, parser_length_error)
-	STATS_NAME(referee_stats, parser_frame_crc_error)
-	STATS_NAME(referee_stats, parser_frames_ok)
-	STATS_NAME(referee_stats, parser_discard_bytes)
-	STATS_NAME(referee_stats, raw_packages_emitted)
+STATS_NAME(referee_stats, RxBytes)
+STATS_NAME(referee_stats, RxChunks)
+STATS_NAME(referee_stats, RxQueueFull)
+STATS_NAME(referee_stats, RxUartStopped)
+STATS_NAME(referee_stats, ParserSofFound)
+STATS_NAME(referee_stats, ParserHeaderCrcError)
+STATS_NAME(referee_stats, ParserLengthError)
+STATS_NAME(referee_stats, ParserFrameCrcError)
+STATS_NAME(referee_stats, ParserFramesOk)
+STATS_NAME(referee_stats, ParserDiscardBytes)
+STATS_NAME(referee_stats, RawPackagesEmitted)
 STATS_NAME_END(referee_stats);
 
 static STATS_SECT_DECL(referee_stats) referee_stats;
 
-void init()
+void Init()
 {
-	const int registration_result = STATS_INIT_AND_REG(
-		referee_stats,
-		STATS_SIZE_32,
-		"referee"
-	);
-	ARG_UNUSED(registration_result);
+	const int registrationResult = STATS_INIT_AND_REG(referee_stats, STATS_SIZE_32, "referee");
+	ARG_UNUSED(registrationResult);
 }
 
-void record(event value, uint32_t amount)
+void Record(Event value, uint32_t amount)
 {
 	switch (value)
 	{
-	case event::rx_bytes:
-		STATS_INCN(referee_stats, rx_bytes, amount);
+	case Event::RxBytes:
+		STATS_INCN(referee_stats, RxBytes, amount);
 		break;
-	case event::rx_chunks:
-		STATS_INCN(referee_stats, rx_chunks, amount);
+	case Event::RxChunks:
+		STATS_INCN(referee_stats, RxChunks, amount);
 		break;
-	case event::rx_queue_full:
-		STATS_INCN(referee_stats, rx_queue_full, amount);
+	case Event::RxQueueFull:
+		STATS_INCN(referee_stats, RxQueueFull, amount);
 		break;
-	case event::rx_uart_stopped:
-		STATS_INCN(referee_stats, rx_uart_stopped, amount);
+	case Event::RxUartStopped:
+		STATS_INCN(referee_stats, RxUartStopped, amount);
 		break;
-	case event::parser_sof_found:
-		STATS_INCN(referee_stats, parser_sof_found, amount);
+	case Event::ParserSofFound:
+		STATS_INCN(referee_stats, ParserSofFound, amount);
 		break;
-	case event::parser_header_crc_error:
-		STATS_INCN(referee_stats, parser_header_crc_error, amount);
+	case Event::ParserHeaderCrcError:
+		STATS_INCN(referee_stats, ParserHeaderCrcError, amount);
 		break;
-	case event::parser_length_error:
-		STATS_INCN(referee_stats, parser_length_error, amount);
+	case Event::ParserLengthError:
+		STATS_INCN(referee_stats, ParserLengthError, amount);
 		break;
-	case event::parser_frame_crc_error:
-		STATS_INCN(referee_stats, parser_frame_crc_error, amount);
+	case Event::ParserFrameCrcError:
+		STATS_INCN(referee_stats, ParserFrameCrcError, amount);
 		break;
-	case event::parser_frames_ok:
-		STATS_INCN(referee_stats, parser_frames_ok, amount);
+	case Event::ParserFramesOk:
+		STATS_INCN(referee_stats, ParserFramesOk, amount);
 		break;
-	case event::parser_discard_bytes:
-		STATS_INCN(referee_stats, parser_discard_bytes, amount);
+	case Event::ParserDiscardBytes:
+		STATS_INCN(referee_stats, ParserDiscardBytes, amount);
 		break;
-	case event::raw_packages_emitted:
-		STATS_INCN(referee_stats, raw_packages_emitted, amount);
+	case Event::RawPackagesEmitted:
+		STATS_INCN(referee_stats, RawPackagesEmitted, amount);
 		break;
 	}
 }
 #endif
 
-}
+} // namespace breeze::referee::internal::stats

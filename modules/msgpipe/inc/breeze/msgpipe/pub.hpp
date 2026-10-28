@@ -4,9 +4,9 @@
  * @brief 消息的强类型发布封装层, 目前基于zbus
  * @version 0.1
  * @date 2026-10-17
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 #pragma once
 
@@ -17,18 +17,18 @@ namespace breeze::msgpipe
 {
 
 /**
- * @brief 消息发布仿函数约定的主模板 
+ * @brief 消息发布仿函数约定的主模板
  * 需要为具体消息类型 `T` 特化本模板, 并实现静态 operator()
- * 
- * @tparam TMsg 消息类型 
+ *
+ * @tparam TMsg 消息类型
  *
  * @par 如何实现（特化约定）
- * 特化 `pub<T>` 并定义以下静态函数：
+ * 特化 `Pub<T>` 并定义以下静态函数：
  * @code{.cpp}
  * template<>
  * struct breeze::msgpipe::pub<MyMessage>
  * {
- *     static void publish(const MyMessage& msg, k_timeout_t timeout)
+ *     static void Publish(const MyMessage& msg, k_timeout_t timeout)
  *     {
  *         // 实际的 zbus 发布逻辑
  *         zbus_chan_pub(&MYCHANNEL,&msg,timeout);
@@ -36,43 +36,39 @@ namespace breeze::msgpipe
  * };
  * @endcode
  */
-template<typename TMsg, typename = void>
-struct pub { };
+template <typename TMsg, typename = void>
+struct Pub
+{};
 
 namespace internal
 {
 
-    template <typename T, typename = void>
-    struct has_publish_impl : std::false_type {};
+template <typename T, typename = void>
+struct HasPublishImpl : std::false_type
+{};
 
-    template <typename T>
-    struct has_publish_impl<
-        T,
-        std::void_t<
-            decltype(pub<T>::publish(
-                std::declval<const T&>(),
-                std::declval<k_timeout_t>()
-            ))
-        >
-    > : std::true_type {};
+template <typename T>
+struct HasPublishImpl<T, std::void_t<decltype(Pub<T>::Publish(std::declval<const T&>(), std::declval<k_timeout_t>()))>>
+    : std::true_type
+{};
 
-}
+} // namespace internal
 
 /**
  * @brief 强类型消息统一发布入口
- * 
- * @tparam TMsg 消息类型, 必须有 pub<TMsg> 特化并实现 publish(const TMsg&, k_timeout_t)
+ *
+ * @tparam TMsg 消息类型, 必须有 Pub<TMsg> 特化并实现 Publish(const TMsg&, k_timeout_t)
  * @param msg 要发布的消息
  * @param timeout 超时
  */
-template<typename TMsg>
-void publish(const TMsg& msg, k_timeout_t timeout)
+template <typename TMsg>
+void Publish(const TMsg& msg, k_timeout_t timeout)
 {
-    static_assert(
-        internal::has_publish_impl<TMsg>::value,
-        "msgpipe: pub_traits<YourType> specialization must provide: "
-        "static void publish(const YourType&, k_timeout_t).");
-    return pub<TMsg>::publish(msg, timeout);
+	static_assert(
+	    internal::HasPublishImpl<TMsg>::value, "msgpipe: pub_traits<YourType> specialization must provide: "
+	                                           "static void Publish(const YourType&, k_timeout_t)."
+	);
+	return Pub<TMsg>::Publish(msg, timeout);
 }
 
-}
+} // namespace breeze::msgpipe

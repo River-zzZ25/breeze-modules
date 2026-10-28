@@ -1,180 +1,163 @@
 #include "protocol/parser.h"
 #include "protocol/referee.h"
 #include "stats.h"
-#include <assert.h>
+#include <cassert>
+#include <cstdint>
 #include <etl/algorithm.h>
+#include <etl/byte_stream.h>
 #include <etl/circular_buffer.h>
 #include <etl/endianness.h>
 #include <etl/iterator.h>
-#include <etl/byte_stream.h>
-#include <cstdint>
 #include <robotpilots/algorithm/crc.hpp>
 namespace breeze::referee
 {
 
 // 移植到具体CRC实现 (其实是命名太长了)
-static inline auto calc_crc8(etl::span<const uint8_t> data)
-{ return robotpilots::algorithm::Crc8Calculate(data); }
-static inline auto calc_crc16(etl::span<const uint8_t> data)
-{ return robotpilots::algorithm::Crc16Calculate(data); }
+static inline auto CalcCrc8(etl::span<const uint8_t> data) { return robotpilots::algorithm::Crc8Calculate(data); }
+static inline auto CalcCrc16(etl::span<const uint8_t> data) { return robotpilots::algorithm::Crc16Calculate(data); }
 
-constexpr auto header_size = sizeof(protocol::frame_header);
-constexpr auto tail_size = sizeof(uint16_t);
-constexpr auto cmd_size = sizeof(uint16_t);
-using iterator = StreamParser::RingBuffer::iterator;
+constexpr auto HEADER_SIZE = sizeof(protocol::FrameHeader);
+constexpr auto TAIL_SIZE = sizeof(uint16_t);
+constexpr auto CMD_SIZE = sizeof(uint16_t);
+using Iterator = StreamParser::RingBuffer::iterator;
 
 /**
  * @brief 搜索有效帧并通知
- * 
+ *
  * @param it_next 当前迭代器, 表示处理进度, 且影响外部循环
  * @param it_end 迭代器边界
  * @param on_next 下游委托
  * @return iterator 新的迭代器, 将会丢弃迭代器前的所有内容
  */
-static iterator search_and_emit(
-    iterator& it_next,
-    const iterator it_end,
-    StreamParser::Observer on_next,
+static Iterator SearchAndEmit(
+    Iterator& itNext,
+    const Iterator itEnd,
+    StreamParser::Observer onNext,
     StreamParser::TmpBuffer buffer
 )
 {
-    const auto it_first = it_next;
-    const auto sof = etl::find(
-        it_next,
-        it_end,
-        protocol::sof
-    );
+	const auto itFirst = itNext;
+	const auto sof = etl::find(itNext, itEnd, protocol::SOF);
 
-    // 没找到sof, 全部数据都没用, 直接丢掉并退出.
-	if(sof == it_end)
+	// 没找到sof, 全部数据都没用, 直接丢掉并退出.
+	if (sof == itEnd)
 	{
-		internal::stats::record(
-			internal::stats::event::parser_discard_bytes,
-			static_cast<uint32_t>(it_end - it_first)
-		);
-		it_next = it_end;
-		return it_end;
+		internal::stats::Record(internal::stats::Event::ParserDiscardBytes, static_cast<uint32_t>(itEnd - itFirst));
+		itNext = itEnd;
+		return itEnd;
 	}
 
-	const size_t avail = static_cast<size_t>(it_end - sof);
-	internal::stats::record(internal::stats::event::parser_sof_found);
+	const size_t avail = static_cast<size_t>(itEnd - sof);
+	internal::stats::Record(internal::stats::Event::ParserSofFound);
 
-    // 数据不够, 等待下次解析
-    if(avail < header_size)
-    {
-        it_next = it_end;
-        return it_first;
-    }
-
-    // 把header 放进连续的buffer里便于解析
-    etl::copy(sof, sof + header_size, buffer.begin());
-
-    etl::byte_stream_reader header_reader {
-        buffer.data(),
-        header_size,
-        etl::endian::little
-    };
-
-    const protocol::frame_header header {
-        .sof = *header_reader.read<decltype(header.sof)>(),
-        .data_length = *header_reader.read<decltype(header.data_length)>(), // 这里optional都可以直接解, 因为上面检查过长度
-        .seq = *header_reader.read<decltype(header.seq)>(),
-        .crc8 = *header_reader.read<decltype(header.crc8)>()
-    };
-
-    // 帧头有问题, 从下一个字节继续.
-	if(const auto crc = calc_crc8({buffer.begin(), buffer.begin() + header_size - 1});
-			crc != header.crc8)
+	// 数据不够, 等待下次解析
+	if (avail < HEADER_SIZE)
 	{
-		internal::stats::record(internal::stats::event::parser_header_crc_error);
-		internal::stats::record(internal::stats::event::parser_discard_bytes);
-		it_next = sof + 1;
-		return it_next;
-    }
+		itNext = itEnd;
+		return itFirst;
+	}
 
-    // 帧头没毛病, 数据不够, 丢掉sof前内容, 并结束解析.
-    if(avail < header_size + cmd_size + header.data_length + tail_size)
-    {
-        it_next = it_end;
-        return sof;
-    }
+	// 把header 放进连续的buffer里便于解析
+	etl::copy(sof, sof + HEADER_SIZE, buffer.begin());
 
-    // 拷贝全包到线性数组以检查crc
-    const size_t max_data = buffer.size() - header_size - cmd_size - tail_size;
-	if (header.data_length > max_data) {
-		internal::stats::record(internal::stats::event::parser_length_error);
-		internal::stats::record(internal::stats::event::parser_discard_bytes);
-		it_next = sof + 1;
-		return it_next;
-    }
+	etl::byte_stream_reader headerReader{buffer.data(), HEADER_SIZE, etl::endian::little};
 
-    etl::copy(sof + header_size, sof + header_size + cmd_size + header.data_length + tail_size, buffer.begin() + header_size);
+	const protocol::FrameHeader header{
+	    .Sof = *headerReader.read<decltype(header.Sof)>(),
+	    .DataLength = *headerReader.read<decltype(header.DataLength)>(), // 这里optional都可以直接解, 因为上面检查过长度
+	    .Seq = *headerReader.read<decltype(header.Seq)>(),
+	    .Crc8 = *headerReader.read<decltype(header.Crc8)>()
+	};
 
-    etl::byte_stream_reader tail_reader {
-        buffer.data() + header_size + cmd_size + header.data_length,
-        tail_size,
-        etl::endian::little
-    };
-    const auto tail_crc = *tail_reader.read<uint16_t>();
-
-    // 尾部crc不对, 直接丢掉解析过的东西
-	if(const auto crc = calc_crc16({buffer.begin(), buffer.begin() + header_size + cmd_size + header.data_length});
-		crc != tail_crc)
+	// 帧头有问题, 从下一个字节继续.
+	if (const auto crc = CalcCrc8({buffer.begin(), buffer.begin() + HEADER_SIZE - 1}); crc != header.Crc8)
 	{
-		internal::stats::record(internal::stats::event::parser_frame_crc_error);
-		internal::stats::record(
-			internal::stats::event::parser_discard_bytes,
-			static_cast<uint32_t>(header_size + cmd_size + header.data_length + tail_size)
+		internal::stats::Record(internal::stats::Event::ParserHeaderCrcError);
+		internal::stats::Record(internal::stats::Event::ParserDiscardBytes);
+		itNext = sof + 1;
+		return itNext;
+	}
+
+	// 帧头没毛病, 数据不够, 丢掉sof前内容, 并结束解析.
+	if (avail < HEADER_SIZE + CMD_SIZE + header.DataLength + TAIL_SIZE)
+	{
+		itNext = itEnd;
+		return sof;
+	}
+
+	// 拷贝全包到线性数组以检查crc
+	const size_t maxData = buffer.size() - HEADER_SIZE - CMD_SIZE - TAIL_SIZE;
+	if (header.DataLength > maxData)
+	{
+		internal::stats::Record(internal::stats::Event::ParserLengthError);
+		internal::stats::Record(internal::stats::Event::ParserDiscardBytes);
+		itNext = sof + 1;
+		return itNext;
+	}
+
+	etl::copy(
+	    sof + HEADER_SIZE, sof + HEADER_SIZE + CMD_SIZE + header.DataLength + TAIL_SIZE, buffer.begin() + HEADER_SIZE
+	);
+
+	etl::byte_stream_reader tailReader{
+	    buffer.data() + HEADER_SIZE + CMD_SIZE + header.DataLength, TAIL_SIZE, etl::endian::little
+	};
+	const auto tailCrc = *tailReader.read<uint16_t>();
+
+	// 尾部crc不对, 直接丢掉解析过的东西
+	if (const auto crc = CalcCrc16({buffer.begin(), buffer.begin() + HEADER_SIZE + CMD_SIZE + header.DataLength});
+	    crc != tailCrc)
+	{
+		internal::stats::Record(internal::stats::Event::ParserFrameCrcError);
+		internal::stats::Record(
+		    internal::stats::Event::ParserDiscardBytes,
+		    static_cast<uint32_t>(HEADER_SIZE + CMD_SIZE + header.DataLength + TAIL_SIZE)
 		);
-		it_next = sof + header_size + cmd_size + header.data_length + tail_size;
-		return it_next;
-    }
-    
-    // 尾部crc也对, 数据有效, 允许起飞, 并且不再解析这些内容.
+		itNext = sof + HEADER_SIZE + CMD_SIZE + header.DataLength + TAIL_SIZE;
+		return itNext;
+	}
 
-    etl::byte_stream_reader cmd_reader {
-        buffer.data() + header_size,
-        cmd_size,
-        etl::endian::little
-    };
-    const auto cmd = *cmd_reader.read<uint16_t>();
+	// 尾部crc也对, 数据有效, 允许起飞, 并且不再解析这些内容.
 
-    const raw_package pkg {
-        .cmd_id = cmd,
-        .payload =
-        {
-            buffer.begin() + header_size + cmd_size,
-            buffer.begin() + header_size + cmd_size + header.data_length
-        }
-    };
+	etl::byte_stream_reader cmdReader{buffer.data() + HEADER_SIZE, CMD_SIZE, etl::endian::little};
+	const auto cmd = *cmdReader.read<uint16_t>();
 
-	on_next(pkg);
-	internal::stats::record(internal::stats::event::parser_frames_ok);
-	internal::stats::record(internal::stats::event::raw_packages_emitted);
+	const RawPackage pkg{
+	    .CmdId = cmd,
+	    .Payload = {
+	        buffer.begin() + HEADER_SIZE + CMD_SIZE, buffer.begin() + HEADER_SIZE + CMD_SIZE + header.DataLength
+	    }
+	};
 
-    it_next = sof + header_size + cmd_size + header.data_length + tail_size;
-    return it_next;
+	onNext(pkg);
+	internal::stats::Record(internal::stats::Event::ParserFramesOk);
+	internal::stats::Record(internal::stats::Event::RawPackagesEmitted);
+
+	itNext = sof + HEADER_SIZE + CMD_SIZE + header.DataLength + TAIL_SIZE;
+	return itNext;
 }
 
-void StreamParser::feed(etl::span<const uint8_t> data)
+void StreamParser::Feed(etl::span<const uint8_t> data)
 {
-    if(_ring_buffer.size() < data.size())
-        _ring_buffer.pop(data.size() - _ring_buffer.size());
+	if (_ringBuffer.size() < data.size())
+	{
+		_ringBuffer.pop(data.size() - _ringBuffer.size());
+	}
 
-    _ring_buffer.push(data.begin(), data.end());
+	_ringBuffer.push(data.begin(), data.end());
 
-    const auto it_begin = _ring_buffer.begin();
-    const auto it_end = _ring_buffer.end();
+	const auto itBegin = _ringBuffer.begin();
+	const auto itEnd = _ringBuffer.end();
 
-    auto it_next = _ring_buffer.begin();
-    auto it_remain = _ring_buffer.begin();
+	auto itNext = _ringBuffer.begin();
+	auto itRemain = _ringBuffer.begin();
 
-    while(it_next != it_end)
-    {
-        it_remain = search_and_emit(it_next, it_end, _on_next, _tmp_buffer);
-    }
-    const auto drop_count = static_cast<size_t>(it_remain - it_begin);
-    _ring_buffer.pop(drop_count);
+	while (itNext != itEnd)
+	{
+		itRemain = SearchAndEmit(itNext, itEnd, _onNext, _tmpBuffer);
+	}
+	const auto dropCount = static_cast<size_t>(itRemain - itBegin);
+	_ringBuffer.pop(dropCount);
 }
 
-}
+} // namespace breeze::referee

@@ -1,5 +1,5 @@
-#include <zephyr/zbus/zbus.h>
 #include <breeze/msgpipe/sub.hpp>
+#include <zephyr/zbus/zbus.h>
 
 #include "breeze/msgpipe/pub.hpp"
 #include "breeze/referee/messages.h"
@@ -13,381 +13,353 @@ namespace internal
 {
 
 // 实例化裸包结构体和zbus内结构体
-static protocol::rx::judge_info_t judge_info;
-static struct game_state_info game_state;
-static struct robot_state_info robot_state;
-static struct chassis_state_info chassis_state;
-static struct shooter_state_info shooter_state;
-static struct player_client_rx_info player_client;
-static struct sentry_only_info sentry;
-static struct custom_controller_rx_info custom_controller;
-static struct custom_client_rx_info custom_client;
+static protocol::rx::JudgeInfo judgeInfo;
+static struct GameStateInfo gameState;
+static struct RobotStateInfo robotState;
+static struct ChassisStateInfo chassisState;
+static struct ShooterStateInfo shooterState;
+static struct PlayerClientRxInfo playerClient;
+static struct SentryOnlyInfo sentry;
+static struct CustomControllerRxInfo customController;
+static struct CustomClientRxInfo customClient;
 
-void on_raw_package(raw_package pkg)
+void OnRawPackage(RawPackage pkg)
 {
-    switch (pkg.cmd_id)
-    {
-        // 0x0001 比赛状态
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::game_status):
-        {
-            memcpy(&judge_info.game_status, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::game_status));
+	switch (pkg.CmdId)
+	{
+	// 0x0001 比赛状态
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::GameStatus): {
+		memcpy(
+		    &judgeInfo.GameStatus, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::GameStatus)
+		);
 
-            game_state.game_type = judge_info.game_status.game_type;
-            game_state.game_progress = judge_info.game_status.game_progress;
-            game_state.stage_remain_time = judge_info.game_status.stage_remain_time;
+		gameState.GameType = judgeInfo.GameStatus.GameType;
+		gameState.GameProgress = judgeInfo.GameStatus.GameProgress;
+		gameState.StageRemainTime = judgeInfo.GameStatus.StageRemainTime;
 
-            msgpipe::publish(game_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(gameState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0003 机器人血量
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::game_robot_hp):
-        {
-            memcpy(&judge_info.game_robot_hp, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::game_robot_hp));
+	// 0x0003 机器人血量
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::GameRobotHp): {
+		memcpy(
+		    &judgeInfo.GameRobotHp, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::GameRobotHp)
+		);
 
-            game_state.ally_hero_hp = judge_info.game_robot_hp.ally_1_robot_hp;
-            game_state.ally_engineer_hp = judge_info.game_robot_hp.ally_2_robot_hp;
-            game_state.ally_infantry_3_hp = judge_info.game_robot_hp.ally_3_robot_hp;
-            game_state.ally_infantry_4_hp = judge_info.game_robot_hp.ally_4_robot_hp;
-            game_state.ally_sentry_hp = judge_info.game_robot_hp.ally_7_robot_hp;
-            game_state.ally_outpost_hp = judge_info.game_robot_hp.ally_outpost_hp;
-            game_state.ally_base_hp = judge_info.game_robot_hp.ally_base_hp;
-            game_state.enemy_outpost_hp = judge_info.game_robot_hp.enemy_outpost_hp;
-            game_state.enemy_base_hp = judge_info.game_robot_hp.enemy_base_hp;
+		gameState.AllyHeroHp = judgeInfo.GameRobotHp.Ally1RobotHp;
+		gameState.AllyEngineerHp = judgeInfo.GameRobotHp.Ally2RobotHp;
+		gameState.AllyInfantry3Hp = judgeInfo.GameRobotHp.Ally3RobotHp;
+		gameState.AllyInfantry4Hp = judgeInfo.GameRobotHp.Ally4RobotHp;
+		gameState.AllySentryHp = judgeInfo.GameRobotHp.Ally7RobotHp;
+		gameState.AllyOutpostHp = judgeInfo.GameRobotHp.AllyOutpostHp;
+		gameState.AllyBaseHp = judgeInfo.GameRobotHp.AllyBaseHp;
+		gameState.EnemyOutpostHp = judgeInfo.GameRobotHp.EnemyOutpostHp;
+		gameState.EnemyBaseHp = judgeInfo.GameRobotHp.EnemyBaseHp;
 
-            msgpipe::publish(game_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(gameState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0101 场地事件
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::event_data):
-        {
-            memcpy(&judge_info.event_data, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::event_data));
+	// 0x0101 场地事件
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::EventData): {
+		memcpy(&judgeInfo.EventData, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::EventData));
 
-            const uint32_t bits = judge_info.event_data.event_data;
-            game_state.ally_supply_occ = (bits >> 0) & 1u;
-            game_state.ally_supply_occ_rmul = (bits >> 2) & 1u;
-            game_state.ally_small_energy_mechanism_state = (bits >> 3) & 3u;
-            game_state.ally_big_energy_mechanism_state = (bits >> 5) & 3u;
-            game_state.ally_center_highland_occ = (bits >> 7) & 3u;
-            game_state.ally_trapezoid_highland_occ = (bits >> 9) & 1u;
-            game_state.enemy_dart_last_hit = (bits >> 20) & 7u;
-            game_state.ally_center_buff_occ_rmul = (bits >> 23) & 3u;
-            game_state.ally_fort_buff_occ = (bits >> 25) & 3u;
-            game_state.ally_outpost_buff_occ = (bits >> 27) & 3u;
-            game_state.ally_base_buff_occ = (bits >> 29) & 1u;
+		const uint32_t bits = judgeInfo.EventData.EventData;
+		gameState.AllySupplyOcc = (bits >> 0) & 1u;
+		gameState.AllySupplyOccRmul = (bits >> 2) & 1u;
+		gameState.AllySmallEnergyMechanismState = (bits >> 3) & 3u;
+		gameState.AllyBigEnergyMechanismState = (bits >> 5) & 3u;
+		gameState.AllyCenterHighlandOcc = (bits >> 7) & 3u;
+		gameState.AllyTrapezoidHighlandOcc = (bits >> 9) & 1u;
+		gameState.EnemyDartLastHit = (bits >> 20) & 7u;
+		gameState.AllyCenterBuffOccRmul = (bits >> 23) & 3u;
+		gameState.AllyFortBuffOcc = (bits >> 25) & 3u;
+		gameState.AllyOutpostBuffOcc = (bits >> 27) & 3u;
+		gameState.AllyBaseBuffOcc = (bits >> 29) & 1u;
 
-            msgpipe::publish(game_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(gameState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0105 飞镖发射
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::dart_info):
-        {
-            memcpy(&judge_info.dart_info, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::dart_info));
+	// 0x0105 飞镖发射
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::DartInfo): {
+		memcpy(&judgeInfo.DartInfo, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::DartInfo));
 
-            game_state.ally_dart_remaining_time = judge_info.dart_info.dart_remaining_time;
-            game_state.ally_dart_last_hit_target = (judge_info.dart_info.dart_info >> 0) & 7u;
-            game_state.last_target_hit_times = (judge_info.dart_info.dart_info >> 3) & 7u;
-            game_state.last_target_hit_type = (judge_info.dart_info.dart_info >> 6) & 7u;
+		gameState.AllyDartRemainingTime = judgeInfo.DartInfo.DartRemainingTime;
+		gameState.AllyDartLastHitTarget = (judgeInfo.DartInfo.DartInfo >> 0) & 7u;
+		gameState.LastTargetHitTimes = (judgeInfo.DartInfo.DartInfo >> 3) & 7u;
+		gameState.LastTargetHitType = (judgeInfo.DartInfo.DartInfo >> 6) & 7u;
 
-            msgpipe::publish(game_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(gameState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0201 机器人性能体系数据
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::robot_status):
-        {
-            memcpy(&judge_info.robot_status, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::robot_status));
+	// 0x0201 机器人性能体系数据
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::RobotStatus): {
+		memcpy(
+		    &judgeInfo.RobotStatus, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::RobotStatus)
+		);
 
-            robot_state.robot_id = judge_info.robot_status.robot_id;
-            robot_state.robot_level = judge_info.robot_status.robot_level;
-            robot_state.current_hp = judge_info.robot_status.current_hp;
-            robot_state.maximum_hp = judge_info.robot_status.maximum_hp;
+		robotState.RobotId = judgeInfo.RobotStatus.RobotId;
+		robotState.RobotLevel = judgeInfo.RobotStatus.RobotLevel;
+		robotState.CurrentHp = judgeInfo.RobotStatus.CurrentHp;
+		robotState.MaximumHp = judgeInfo.RobotStatus.MaximumHp;
 
-            chassis_state.chassis_power_limit = judge_info.robot_status.chassis_power_limit;
+		chassisState.ChassisPowerLimit = judgeInfo.RobotStatus.ChassisPowerLimit;
 
-            shooter_state.shooter_barrel_cooling_value = judge_info.robot_status.shooter_barrel_cooling_value;
-            shooter_state.shooter_barrel_heat_limit = judge_info.robot_status.shooter_barrel_heat_limit;
-            shooter_state.bullet_speed_limit = judge_info.robot_status.bullet_speed_limit;
+		shooterState.ShooterBarrelCoolingValue = judgeInfo.RobotStatus.ShooterBarrelCoolingValue;
+		shooterState.ShooterBarrelHeatLimit = judgeInfo.RobotStatus.ShooterBarrelHeatLimit;
+		shooterState.BulletSpeedLimit = judgeInfo.RobotStatus.BulletSpeedLimit;
 
-            msgpipe::publish(robot_state, K_NO_WAIT);
-            msgpipe::publish(chassis_state, K_NO_WAIT);
-            msgpipe::publish(shooter_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(robotState, K_NO_WAIT);
+		msgpipe::Publish(chassisState, K_NO_WAIT);
+		msgpipe::Publish(shooterState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0202 实时底盘缓冲能量和射击热量数据
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::power_heat_data):
-        {
-            memcpy(&judge_info.power_heat_data, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::power_heat_data));
+	// 0x0202 实时底盘缓冲能量和射击热量数据
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::PowerHeatData): {
+		memcpy(
+		    &judgeInfo.PowerHeatData, pkg.Payload.data(),
+		    static_cast<size_t>(protocol::rx::RefereeRxLength::PowerHeatData)
+		);
 
-            chassis_state.buffer_energy = judge_info.power_heat_data.buffer_energy;
+		chassisState.BufferEnergy = judgeInfo.PowerHeatData.BufferEnergy;
 
-            shooter_state.shooter_17mm_barrel_heat = judge_info.power_heat_data.shooter_17mm_barrel_heat;
-            shooter_state.shooter_42mm_barrel_heat = judge_info.power_heat_data.shooter_42mm_barrel_heat;
+		shooterState.Shooter17mmBarrelHeat = judgeInfo.PowerHeatData.Shooter17mmBarrelHeat;
+		shooterState.Shooter42mmBarrelHeat = judgeInfo.PowerHeatData.Shooter42mmBarrelHeat;
 
-            msgpipe::publish(chassis_state, K_NO_WAIT);
-            msgpipe::publish(shooter_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(chassisState, K_NO_WAIT);
+		msgpipe::Publish(shooterState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0203 机器人位置数据
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::robot_pos):
-        {
-            memcpy(&judge_info.robot_pos, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::robot_pos));
+	// 0x0203 机器人位置数据
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::RobotPos): {
+		memcpy(&judgeInfo.RobotPos, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::RobotPos));
 
-            robot_state.x = judge_info.robot_pos.x;
-            robot_state.y = judge_info.robot_pos.y;
-            robot_state.angle = judge_info.robot_pos.angle;
+		robotState.X = judgeInfo.RobotPos.X;
+		robotState.Y = judgeInfo.RobotPos.Y;
+		robotState.Angle = judgeInfo.RobotPos.Angle;
 
-            msgpipe::publish(robot_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(robotState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0204 机器人增益和底盘能量数据
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::buff):
-        {
-            memcpy(&judge_info.buff, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::buff));
+	// 0x0204 机器人增益和底盘能量数据
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::Buff): {
+		memcpy(&judgeInfo.Buff, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::Buff));
 
-            robot_state.recovery_buff = judge_info.buff.recovery_buff;
-            robot_state.remaining_energy = judge_info.buff.remaining_energy;
+		robotState.RecoveryBuff = judgeInfo.Buff.RecoveryBuff;
+		robotState.RemainingEnergy = judgeInfo.Buff.RemainingEnergy;
 
-            msgpipe::publish(robot_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(robotState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0206 伤害状态数据
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::hurt_data):
-        {
-            memcpy(&judge_info.hurt_data, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::hurt_data));
+	// 0x0206 伤害状态数据
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::HurtData): {
+		memcpy(&judgeInfo.HurtData, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::HurtData));
 
-            robot_state.armor_id = judge_info.hurt_data.armor_id;
-            robot_state.hp_deduction_reason = judge_info.hurt_data.hp_deduction_reason;
+		robotState.ArmorId = judgeInfo.HurtData.ArmorId;
+		robotState.HpDeductionReason = judgeInfo.HurtData.HpDeductionReason;
 
-            msgpipe::publish(robot_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(robotState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0207 实时射击数据
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::shoot_data):
-        {
-            memcpy(&judge_info.shoot_data, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::shoot_data));
+	// 0x0207 实时射击数据
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::ShootData): {
+		memcpy(&judgeInfo.ShootData, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::ShootData));
 
-            shooter_state.launching_frequency = judge_info.shoot_data.launching_frequency;
-            shooter_state.initial_speed = judge_info.shoot_data.initial_speed;
+		shooterState.LaunchingFrequency = judgeInfo.ShootData.LaunchingFrequency;
+		shooterState.InitialSpeed = judgeInfo.ShootData.InitialSpeed;
 
-            msgpipe::publish(shooter_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(shooterState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0208 允许发弹量与剩余金币
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::projectile_allowance):
-        {
-            memcpy(&judge_info.projectile_allowance, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::projectile_allowance));
+	// 0x0208 允许发弹量与剩余金币
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::ProjectileAllowance): {
+		memcpy(
+		    &judgeInfo.ProjectileAllowance, pkg.Payload.data(),
+		    static_cast<size_t>(protocol::rx::RefereeRxLength::ProjectileAllowance)
+		);
 
-            robot_state.remaining_gold_coin = judge_info.projectile_allowance.remaining_gold_coin;
+		robotState.RemainingGoldCoin = judgeInfo.ProjectileAllowance.RemainingGoldCoin;
 
-            shooter_state.projectile_allowance_17mm = judge_info.projectile_allowance.projectile_allowance_17mm;
-            shooter_state.projectile_allowance_42mm = judge_info.projectile_allowance.projectile_allowance_42mm;
+		shooterState.ProjectileAllowance17mm = judgeInfo.ProjectileAllowance.ProjectileAllowance17mm;
+		shooterState.ProjectileAllowance42mm = judgeInfo.ProjectileAllowance.ProjectileAllowance42mm;
 
-            msgpipe::publish(robot_state, K_NO_WAIT);
-            msgpipe::publish(shooter_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(robotState, K_NO_WAIT);
+		msgpipe::Publish(shooterState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0209 机器人 RFID 模块状态
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::rfid_status):
-        {
-            memcpy(&judge_info.rfid_status, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::rfid_status));
+	// 0x0209 机器人 RFID 模块状态
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::RfidStatus): {
+		memcpy(
+		    &judgeInfo.RfidStatus, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::RfidStatus)
+		);
 
-            const uint32_t rfid = judge_info.rfid_status.rfid_status;
-            const uint8_t rfid2 = judge_info.rfid_status.rfid_status_2;
-            robot_state.ally_base_buff = (rfid >> 0) & 1u;
-            robot_state.ally_central_highland_buff = (rfid >> 1) & 1u;
-            robot_state.enemy_central_highland_buff = (rfid >> 2) & 1u;
-            robot_state.ally_trapezoid_highland_buff = (rfid >> 3) & 1u;
-            robot_state.enemy_trapezoid_highland_buff = (rfid >> 4) & 1u;
-            robot_state.ally_fly_slope_before = (rfid >> 5) & 1u;
-            robot_state.ally_fly_slope_after = (rfid >> 6) & 1u;
-            robot_state.enemy_fly_slope_before = (rfid >> 7) & 1u;
-            robot_state.enemy_fly_slope_after = (rfid >> 8) & 1u;
-            robot_state.ally_central_highland_below = (rfid >> 9) & 1u;
-            robot_state.ally_central_highland_above = (rfid >> 10) & 1u;
-            robot_state.enemy_central_highland_below = (rfid >> 11) & 1u;
-            robot_state.enemy_central_highland_above = (rfid >> 12) & 1u;
-            robot_state.ally_highway_below = (rfid >> 13) & 1u;
-            robot_state.ally_highway_above = (rfid >> 14) & 1u;
-            robot_state.enemy_highway_below = (rfid >> 15) & 1u;
-            robot_state.enemy_highway_above = (rfid >> 16) & 1u;
-            robot_state.ally_fort_buff = (rfid >> 17) & 1u;
-            robot_state.ally_outpost_buff = (rfid >> 18) & 1u;
-            robot_state.ally_supply_no_overlap = (rfid >> 19) & 1u;
-            robot_state.ally_supply_overlap = (rfid >> 20) & 1u;
-            robot_state.ally_assembly_buff = (rfid >> 21) & 1u;
-            robot_state.enemy_assembly_buff = (rfid >> 22) & 1u;
-            robot_state.center_buff_rmul = (rfid >> 23) & 1u;
-            robot_state.enemy_fort_buff = (rfid >> 24) & 1u;
-            robot_state.enemy_outpost_buff = (rfid >> 25) & 1u;
-            robot_state.ally_tunnel_highway_below = (rfid >> 26) & 1u;
-            robot_state.ally_tunnel_highway_mid = (rfid >> 27) & 1u;
-            robot_state.ally_tunnel_highway_above = (rfid >> 28) & 1u;
-            robot_state.ally_tunnel_highland_below = (rfid >> 29) & 1u;
-            robot_state.ally_tunnel_highland_mid = (rfid >> 30) & 1u;
-            robot_state.ally_tunnel_highland_above = (rfid >> 31) & 1u;
-            robot_state.enemy_tunnel_highway_below = (rfid2 >> 0) & 1u;
-            robot_state.enemy_tunnel_highway_mid = (rfid2 >> 1) & 1u;
-            robot_state.enemy_tunnel_highway_above = (rfid2 >> 2) & 1u;
-            robot_state.enemy_tunnel_highland_below = (rfid2 >> 3) & 1u;
-            robot_state.enemy_tunnel_highland_mid = (rfid2 >> 4) & 1u;
-            robot_state.enemy_tunnel_highland_above = (rfid2 >> 5) & 1u;
+		const uint32_t rfid = judgeInfo.RfidStatus.RfidStatus;
+		const uint8_t rfid2 = judgeInfo.RfidStatus.RfidStatus2;
+		robotState.AllyBaseBuff = (rfid >> 0) & 1u;
+		robotState.AllyCentralHighlandBuff = (rfid >> 1) & 1u;
+		robotState.EnemyCentralHighlandBuff = (rfid >> 2) & 1u;
+		robotState.AllyTrapezoidHighlandBuff = (rfid >> 3) & 1u;
+		robotState.EnemyTrapezoidHighlandBuff = (rfid >> 4) & 1u;
+		robotState.AllyFlySlopeBefore = (rfid >> 5) & 1u;
+		robotState.AllyFlySlopeAfter = (rfid >> 6) & 1u;
+		robotState.EnemyFlySlopeBefore = (rfid >> 7) & 1u;
+		robotState.EnemyFlySlopeAfter = (rfid >> 8) & 1u;
+		robotState.AllyCentralHighlandBelow = (rfid >> 9) & 1u;
+		robotState.AllyCentralHighlandAbove = (rfid >> 10) & 1u;
+		robotState.EnemyCentralHighlandBelow = (rfid >> 11) & 1u;
+		robotState.EnemyCentralHighlandAbove = (rfid >> 12) & 1u;
+		robotState.AllyHighwayBelow = (rfid >> 13) & 1u;
+		robotState.AllyHighwayAbove = (rfid >> 14) & 1u;
+		robotState.EnemyHighwayBelow = (rfid >> 15) & 1u;
+		robotState.EnemyHighwayAbove = (rfid >> 16) & 1u;
+		robotState.AllyFortBuff = (rfid >> 17) & 1u;
+		robotState.AllyOutpostBuff = (rfid >> 18) & 1u;
+		robotState.AllySupplyNoOverlap = (rfid >> 19) & 1u;
+		robotState.AllySupplyOverlap = (rfid >> 20) & 1u;
+		robotState.AllyAssemblyBuff = (rfid >> 21) & 1u;
+		robotState.EnemyAssemblyBuff = (rfid >> 22) & 1u;
+		robotState.CenterBuffRmul = (rfid >> 23) & 1u;
+		robotState.EnemyFortBuff = (rfid >> 24) & 1u;
+		robotState.EnemyOutpostBuff = (rfid >> 25) & 1u;
+		robotState.AllyTunnelHighwayBelow = (rfid >> 26) & 1u;
+		robotState.AllyTunnelHighwayMid = (rfid >> 27) & 1u;
+		robotState.AllyTunnelHighwayAbove = (rfid >> 28) & 1u;
+		robotState.AllyTunnelHighlandBelow = (rfid >> 29) & 1u;
+		robotState.AllyTunnelHighlandMid = (rfid >> 30) & 1u;
+		robotState.AllyTunnelHighlandAbove = (rfid >> 31) & 1u;
+		robotState.EnemyTunnelHighwayBelow = (rfid2 >> 0) & 1u;
+		robotState.EnemyTunnelHighwayMid = (rfid2 >> 1) & 1u;
+		robotState.EnemyTunnelHighwayAbove = (rfid2 >> 2) & 1u;
+		robotState.EnemyTunnelHighlandBelow = (rfid2 >> 3) & 1u;
+		robotState.EnemyTunnelHighlandMid = (rfid2 >> 4) & 1u;
+		robotState.EnemyTunnelHighlandAbove = (rfid2 >> 5) & 1u;
 
-            msgpipe::publish(robot_state, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(robotState, K_NO_WAIT);
+		break;
+	}
 
-        // 0x020B 地面机器人位置数据
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::ground_robot_pos):
-        {
-            memcpy(&judge_info.ground_robot_pos, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::ground_robot_pos));
+	// 0x020B 地面机器人位置数据
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::GroundRobotPos): {
+		memcpy(
+		    &judgeInfo.GroundRobotPos, pkg.Payload.data(),
+		    static_cast<size_t>(protocol::rx::RefereeRxLength::GroundRobotPos)
+		);
 
-            sentry.ally_hero_x = judge_info.ground_robot_pos.hero_x;
-            sentry.ally_hero_y = judge_info.ground_robot_pos.hero_y;
-            sentry.ally_engineer_x = judge_info.ground_robot_pos.engineer_x;
-            sentry.ally_engineer_y = judge_info.ground_robot_pos.engineer_y;
-            sentry.ally_infantry_3_x = judge_info.ground_robot_pos.standard_3_x;
-            sentry.ally_infantry_3_y = judge_info.ground_robot_pos.standard_3_y;
-            sentry.ally_infantry_4_x = judge_info.ground_robot_pos.standard_4_x;
-            sentry.ally_infantry_4_y = judge_info.ground_robot_pos.standard_4_y;
+		sentry.AllyHeroX = judgeInfo.GroundRobotPos.HeroX;
+		sentry.AllyHeroY = judgeInfo.GroundRobotPos.HeroY;
+		sentry.AllyEngineerX = judgeInfo.GroundRobotPos.EngineerX;
+		sentry.AllyEngineerY = judgeInfo.GroundRobotPos.EngineerY;
+		sentry.AllyInfantry3X = judgeInfo.GroundRobotPos.Standard3X;
+		sentry.AllyInfantry3Y = judgeInfo.GroundRobotPos.Standard3Y;
+		sentry.AllyInfantry4X = judgeInfo.GroundRobotPos.Standard4X;
+		sentry.AllyInfantry4Y = judgeInfo.GroundRobotPos.Standard4Y;
 
-            msgpipe::publish(sentry, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(sentry, K_NO_WAIT);
+		break;
+	}
 
-        // 0x020D 哨兵自主决策信息同步
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::sentry_info):
-        {
-            memcpy(&judge_info.sentry_info, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::sentry_info));
+	// 0x020D 哨兵自主决策信息同步
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::SentryInfo): {
+		memcpy(
+		    &judgeInfo.SentryInfo, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::SentryInfo)
+		);
 
-            const uint32_t info = judge_info.sentry_info.sentry_info;
-            const uint16_t info2 = judge_info.sentry_info.sentry_info_2;
-            const uint64_t info3 = judge_info.sentry_info.sentry_info_3;
-            sentry.exchange_projectile_allowance = (info >> 0) & 0x7FFu;
-            sentry.remote_exchange_projectile_allowance_times = (info >> 11) & 0xFu;
-            sentry.remote_exchange_hp_times = (info >> 15) & 0xFu;
-            sentry.free_revive_available = (info >> 19) & 1u;
-            sentry.instant_revive_available = (info >> 20) & 1u;
-            sentry.instant_revive_cost = (info >> 21) & 0x3FFu;
-            sentry.out_of_combat = (info2 >> 0) & 1u;
-            sentry.team_projectile_allowance_17mm_left = (info2 >> 1) & 0x7FFu;
-            sentry.posture = (info2 >> 12) & 3u;
-            sentry.energy_mechanism_activate_allowance = (info2 >> 14) & 1u;
-            sentry.enhanced_posture = (info2 >> 15) & 1u;
-            sentry.attack_before_weak_time_left = (info3 >> 0) & 0xFFu;
-            sentry.defense_before_weak_time_left = (info3 >> 8) & 0xFFu;
-            sentry.move_before_weak_time_left = (info3 >> 16) & 0xFFu;
-            sentry.enhanced_attack_time_left = (info3 >> 32) & 0xFFu;
-            sentry.enhanced_defense_time_left = (info3 >> 40) & 0xFFu;
-            sentry.enhanced_move_time_left = (info3 >> 48) & 0xFFu;
+		const uint32_t info = judgeInfo.SentryInfo.SentryInfo;
+		const uint16_t info2 = judgeInfo.SentryInfo.SentryInfo2;
+		const uint64_t info3 = judgeInfo.SentryInfo.SentryInfo3;
+		sentry.ExchangeProjectileAllowance = (info >> 0) & 0x7FFu;
+		sentry.RemoteExchangeProjectileAllowanceTimes = (info >> 11) & 0xFu;
+		sentry.RemoteExchangeHpTimes = (info >> 15) & 0xFu;
+		sentry.FreeReviveAvailable = (info >> 19) & 1u;
+		sentry.InstantReviveAvailable = (info >> 20) & 1u;
+		sentry.InstantReviveCost = (info >> 21) & 0x3FFu;
+		sentry.OutOfCombat = (info2 >> 0) & 1u;
+		sentry.TeamProjectileAllowance17mmLeft = (info2 >> 1) & 0x7FFu;
+		sentry.Posture = (info2 >> 12) & 3u;
+		sentry.EnergyMechanismActivateAllowance = (info2 >> 14) & 1u;
+		sentry.EnhancedPosture = (info2 >> 15) & 1u;
+		sentry.AttackBeforeWeakTimeLeft = (info3 >> 0) & 0xFFu;
+		sentry.DefenseBeforeWeakTimeLeft = (info3 >> 8) & 0xFFu;
+		sentry.MoveBeforeWeakTimeLeft = (info3 >> 16) & 0xFFu;
+		sentry.EnhancedAttackTimeLeft = (info3 >> 32) & 0xFFu;
+		sentry.EnhancedDefenseTimeLeft = (info3 >> 40) & 0xFFu;
+		sentry.EnhancedMoveTimeLeft = (info3 >> 48) & 0xFFu;
 
-            msgpipe::publish(sentry, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(sentry, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0302 自定义控制器 -> 机器人（图传）
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::custom_controller_data):
-        {
-            memcpy(&judge_info.custom_controller_data, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::custom_controller_data));
+	// 0x0302 自定义控制器 -> 机器人（图传）
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::CustomControllerData): {
+		memcpy(
+		    &judgeInfo.CustomControllerData, pkg.Payload.data(),
+		    static_cast<size_t>(protocol::rx::RefereeRxLength::CustomControllerData)
+		);
 
-            memcpy(custom_controller.custom_controller_data,
-                   judge_info.custom_controller_data.data,
-                   sizeof(custom_controller.custom_controller_data));
+		memcpy(
+		    customController.CustomControllerData, judgeInfo.CustomControllerData.Data,
+		    sizeof(customController.CustomControllerData)
+		);
 
-            msgpipe::publish(custom_controller, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(customController, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0303 选手端 -> 机器人（图传）
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::map_command):
-        {
-            memcpy(&judge_info.map_command, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::map_command));
+	// 0x0303 选手端 -> 机器人（图传）
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::MapCommand): {
+		memcpy(
+		    &judgeInfo.MapCommand, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::MapCommand)
+		);
 
-            player_client.target_position_x = judge_info.map_command.target_position_x;
-            player_client.target_position_y = judge_info.map_command.target_position_y;
-            player_client.cmd_keyboard = judge_info.map_command.cmd_keyboard;
-            player_client.target_robot_id = judge_info.map_command.target_robot_id;
-            player_client.cmd_source = judge_info.map_command.cmd_source;
+		playerClient.TargetPositionX = judgeInfo.MapCommand.TargetPositionX;
+		playerClient.TargetPositionY = judgeInfo.MapCommand.TargetPositionY;
+		playerClient.CmdKeyboard = judgeInfo.MapCommand.CmdKeyboard;
+		playerClient.TargetRobotId = judgeInfo.MapCommand.TargetRobotId;
+		playerClient.CmdSource = judgeInfo.MapCommand.CmdSource;
 
-            msgpipe::publish(player_client, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(playerClient, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0307 选手端小地图接收路径数据
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::map_data):
-        {
-            memcpy(&judge_info.map_data, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::map_data));
+	// 0x0307 选手端小地图接收路径数据
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::MapData): {
+		memcpy(&judgeInfo.MapData, pkg.Payload.data(), static_cast<size_t>(protocol::rx::RefereeRxLength::MapData));
 
-            sentry.intention = judge_info.map_data.intention;
-            sentry.start_position_x = judge_info.map_data.start_position_x;
-            sentry.start_position_y = judge_info.map_data.start_position_y;
-            memcpy(sentry.delta_x, judge_info.map_data.delta_x, sizeof(sentry.delta_x));
-            memcpy(sentry.delta_y, judge_info.map_data.delta_y, sizeof(sentry.delta_y));
-            sentry.sender_id = judge_info.map_data.sender_id;
+		sentry.Intention = judgeInfo.MapData.Intention;
+		sentry.StartPositionX = judgeInfo.MapData.StartPositionX;
+		sentry.StartPositionY = judgeInfo.MapData.StartPositionY;
+		memcpy(sentry.DeltaX, judgeInfo.MapData.DeltaX, sizeof(sentry.DeltaX));
+		memcpy(sentry.DeltaY, judgeInfo.MapData.DeltaY, sizeof(sentry.DeltaY));
+		sentry.SenderId = judgeInfo.MapData.SenderId;
 
-            msgpipe::publish(sentry, K_NO_WAIT);
-            break;
-        }
+		msgpipe::Publish(sentry, K_NO_WAIT);
+		break;
+	}
 
-        // 0x0311 自定义客户端 -> 机器人（图传）
-        case static_cast<uint16_t>(protocol::rx::RefereeRxID::custom_client_data):
-        {
-            memcpy(&judge_info.custom_client_data, 
-                   pkg.payload.data(), 
-                   static_cast<size_t>(protocol::rx::RefereeRxlength::custom_client_data));
+	// 0x0311 自定义客户端 -> 机器人（图传）
+	case static_cast<uint16_t>(protocol::rx::RefereeRxID::CustomClientData): {
+		memcpy(
+		    &judgeInfo.CustomClientData, pkg.Payload.data(),
+		    static_cast<size_t>(protocol::rx::RefereeRxLength::CustomClientData)
+		);
 
-            memcpy(custom_client.custom_client_data,
-                   judge_info.custom_client_data.data,
-                   sizeof(custom_client.custom_client_data));
+		memcpy(customClient.CustomClientData, judgeInfo.CustomClientData.Data, sizeof(customClient.CustomClientData));
 
-            msgpipe::publish(custom_client, K_NO_WAIT);
-            break;
-        }
-    }
+		msgpipe::Publish(customClient, K_NO_WAIT);
+		break;
+	}
+	}
 }
 
-}// namespace internal 
-}// namespace breeze::referee
+} // namespace internal
+} // namespace breeze::referee

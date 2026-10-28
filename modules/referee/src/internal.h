@@ -6,14 +6,14 @@
 
 namespace breeze::referee::internal
 {
-	/**
-	 * @brief 解出裸id包后的分发对接口.
-	 * 
-	 */
-	void on_raw_package(raw_package);
-	/**
-	 * @brief uart启动
-	 * @returns bool 是否成功启动
-	 */
-	bool start_uart(const device* uart, StreamParser& parser, bool is_vt);
-}
+/**
+ * @brief 解出裸id包后的分发对接口.
+ *
+ */
+void OnRawPackage(RawPackage);
+/**
+ * @brief uart启动
+ * @returns bool 是否成功启动
+ */
+bool StartUart(const device* uart, StreamParser& parser, bool isVt);
+} // namespace breeze::referee::internal

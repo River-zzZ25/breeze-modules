@@ -7,8 +7,8 @@
 
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
 #include <zephyr/linker/section_tags.h>
+#include <zephyr/logging/log.h>
 
 #include <cstring>
 
@@ -19,110 +19,100 @@ namespace breeze::referee::internal
 
 struct RxMessage
 {
-	size_t len;
-	uint8_t data[CONFIG_BREEZE_MODULE_REFEREE_SERIAL_BUFFER_SIZE];
+	size_t Len;
+	uint8_t Data[CONFIG_BREEZE_MODULE_REFEREE_SERIAL_BUFFER_SIZE];
 };
 
 struct RxContext
 {
-	const device *uart;
-	StreamParser *parser;
-	k_msgq *queue;
-	uint8_t dma_buffers[2][CONFIG_BREEZE_MODULE_REFEREE_SERIAL_BUFFER_SIZE] {};
-	uint8_t next_buffer;
+	const device* Uart{};
+	StreamParser* Parser{};
+	k_msgq* Queue{};
+	uint8_t DmaBuffers[2][CONFIG_BREEZE_MODULE_REFEREE_SERIAL_BUFFER_SIZE]{};
+	uint8_t NextBuffer{};
 };
 
-K_MSGQ_DEFINE(referee_rx_queue, sizeof(RxMessage), 4, 1);
-K_MSGQ_DEFINE(vt_rx_queue, sizeof(RxMessage), 4, 1);
+K_MSGQ_DEFINE(refereeRxQueue, sizeof(RxMessage), 4, 1);
+K_MSGQ_DEFINE(vtRxQueue, sizeof(RxMessage), 4, 1);
 
-static RxContext
-	referee_context
-	{ 
-		.queue = &referee_rx_queue,
-		.next_buffer = 1u 
-	},
-	vt_context
-	{
-		.queue = &vt_rx_queue,
-		.next_buffer = 1u
-	};
+static RxContext refereeContext{.Queue = &refereeRxQueue, .NextBuffer = 1u},
+    vtContext{.Queue = &vtRxQueue, .NextBuffer = 1u};
 
-K_THREAD_STACK_DEFINE(referee_rx_stack, CONFIG_BREEZE_MODULE_REFEREE_RX_THREAD_STACK_SIZE);
-K_THREAD_STACK_DEFINE(vt_rx_stack, CONFIG_BREEZE_MODULE_REFEREE_RX_THREAD_STACK_SIZE);
+K_THREAD_STACK_DEFINE(refereeRxStack, CONFIG_BREEZE_MODULE_REFEREE_RX_THREAD_STACK_SIZE);
+K_THREAD_STACK_DEFINE(vtRxStack, CONFIG_BREEZE_MODULE_REFEREE_RX_THREAD_STACK_SIZE);
 
-static k_thread referee_rx_thread, vt_rx_thread;
+static k_thread refereeRxThread, vt_rx_thread;
 
-static void rx_handler(void *p1, void *, void *)
+static void RxHandler(void* p1, void*, void*)
 {
-	RxContext& context = *static_cast<RxContext *>(p1);
-	RxMessage message {};
+	RxContext& context = *static_cast<RxContext*>(p1);
+	RxMessage message{};
 
 	while (true)
 	{
-		k_msgq_get(context.queue, &message, K_FOREVER);
-		context.parser->feed({message.data, message.len});
+		k_msgq_get(context.Queue, &message, K_FOREVER);
+		context.Parser->Feed({message.Data, message.Len});
 	}
 }
 
-static void uart_cb(const device *dev, uart_event *evt, void *user_data)
+static void UartCb(const device* dev, uart_event* evt, void* userData)
 {
-	RxContext& context = *static_cast<RxContext *>(user_data);
+	RxContext& context = *static_cast<RxContext*>(userData);
 
 	switch (evt->type)
 	{
-		case UART_RX_BUF_REQUEST:
-			uart_rx_buf_rsp(dev, context.dma_buffers[context.next_buffer],
-					 sizeof(context.dma_buffers[context.next_buffer]));
-			context.next_buffer ^= 1U;
-			break;
-		case UART_RX_RDY: {
-			RxMessage message { .len = evt->data.rx.len };
-			stats::record(stats::event::rx_chunks);
-			stats::record(stats::event::rx_bytes, message.len);
-			std::memcpy(message.data, evt->data.rx.buf + evt->data.rx.offset, message.len);
-			if (k_msgq_put(context.queue, &message, K_NO_WAIT) != 0)
-			{
-				stats::record(stats::event::rx_queue_full);
-			}
-			break;
+	case UART_RX_BUF_REQUEST:
+		uart_rx_buf_rsp(dev, context.DmaBuffers[context.NextBuffer], sizeof(context.DmaBuffers[context.NextBuffer]));
+		context.NextBuffer ^= 1U;
+		break;
+	case UART_RX_RDY: {
+		RxMessage message{.Len = evt->data.rx.len};
+		stats::Record(stats::Event::RxChunks);
+		stats::Record(stats::Event::RxBytes, message.Len);
+		std::memcpy(message.Data, evt->data.rx.buf + evt->data.rx.offset, message.Len);
+		if (k_msgq_put(context.Queue, &message, K_NO_WAIT) != 0)
+		{
+			stats::Record(stats::Event::RxQueueFull);
 		}
-		case UART_RX_STOPPED:
-			stats::record(stats::event::rx_uart_stopped);
-			break;
-		default:
-			break;
+		break;
+	}
+	case UART_RX_STOPPED:
+		stats::Record(stats::Event::RxUartStopped);
+		break;
+	default:
+		break;
 	}
 }
 
-static bool start_uart_channel(
-	RxContext& context,
-	const device *uart,
-	StreamParser& parser,
-	k_thread& thread,
-	k_thread_stack_t *stack,
-	size_t stack_size
+static bool StartUartChannel(
+    RxContext& context,
+    const device* uart,
+    StreamParser& parser,
+    k_thread& thread,
+    k_thread_stack_t* stack,
+    size_t stackSize
 )
 {
-	context.uart = uart;
-	context.parser = &parser;
-	context.next_buffer = 1U;
+	context.Uart = uart;
+	context.Parser = &parser;
+	context.NextBuffer = 1U;
 
-	if (auto ret = uart_callback_set(context.uart, uart_cb, &context); ret != 0)
+	if (auto ret = uart_callback_set(context.Uart, UartCb, &context); ret != 0)
 	{
 		LOG_ERR("referee UART callback setup failed (%d)", ret);
 		return false;
 	}
 
-	if(auto ret = uart_rx_enable(context.uart, context.dma_buffers[0],
-			   sizeof(context.dma_buffers[0]), 0); ret !=0)
+	if (auto ret = uart_rx_enable(context.Uart, context.DmaBuffers[0], sizeof(context.DmaBuffers[0]), 0); ret != 0)
 	{
 		LOG_ERR("referee UART RX enable failed (%d)", ret);
 		return false;
 	}
 
-	if (k_thread_create(&thread, stack, stack_size, rx_handler, &context,
-			nullptr, nullptr, CONFIG_BREEZE_MODULE_REFEREE_RX_THREAD_PRIORITY,
-			0, K_NO_WAIT) == nullptr)
+	if (k_thread_create(
+	        &thread, stack, stackSize, RxHandler, &context, nullptr, nullptr,
+	        CONFIG_BREEZE_MODULE_REFEREE_RX_THREAD_PRIORITY, 0, K_NO_WAIT
+	    ) == nullptr)
 	{
 		LOG_ERR("referee RX thread creation failed");
 		return false;
@@ -131,30 +121,18 @@ static bool start_uart_channel(
 	return true;
 }
 
-bool start_uart(const device *uart, StreamParser& parser, bool vt)
+bool StartUart(const device* uart, StreamParser& parser, bool vt)
 {
 	if (vt)
 	{
-		return start_uart_channel(
-			vt_context,
-			uart,
-			parser,
-			vt_rx_thread,
-			vt_rx_stack,
-		   K_THREAD_STACK_SIZEOF(vt_rx_stack)
-		);
+		return StartUartChannel(vtContext, uart, parser, vt_rx_thread, vtRxStack, K_THREAD_STACK_SIZEOF(vtRxStack));
 	}
 	else
 	{
-		return start_uart_channel(
-			referee_context,
-			uart,
-			parser,
-			referee_rx_thread,
-		   referee_rx_stack,
-		   K_THREAD_STACK_SIZEOF(referee_rx_stack)
+		return StartUartChannel(
+		    refereeContext, uart, parser, refereeRxThread, refereeRxStack, K_THREAD_STACK_SIZEOF(refereeRxStack)
 		);
 	}
 }
 
-}
+} // namespace breeze::referee::internal

@@ -4,13 +4,13 @@
  * @brief 裁判系统顶层coordinate实现, 负责创建任务并分发到各实现内.
  * @version 0.1
  * @date 2026-10-18
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 #include "breeze/referee/module.h"
-#include "protocol/parser.h"
 #include "internal.h"
+#include "protocol/parser.h"
 #include "stats.h"
 
 #include <etl/array.h>
@@ -22,41 +22,43 @@ namespace breeze::referee::internal
 
 struct CompoundBuffer
 {
-	etl::circular_buffer<uint8_t, CONFIG_BREEZE_MODULE_REFEREE_RING_BUF_SIZE> ring {};
-	etl::array<uint8_t, CONFIG_BREEZE_MODULE_REFEREE_LINEAR_BUF_SIZE> linear {};
-} static referee_buf, vt_buff;
+	etl::circular_buffer<uint8_t, CONFIG_BREEZE_MODULE_REFEREE_RING_BUF_SIZE> Ring{};
+	etl::array<uint8_t, CONFIG_BREEZE_MODULE_REFEREE_LINEAR_BUF_SIZE> Linear{};
+} static refereeBuf, vtBuff;
 
-static etl::optional<StreamParser> referee_parser, vt_parser;
+static etl::optional<StreamParser> refereeParser, vtParser;
 
-StreamParser mk_parser(CompoundBuffer& buf)
+StreamParser MkParser(CompoundBuffer& buf)
 {
-	return {
-		buf.ring,
-		{ buf.linear.begin(), buf.linear.end() },
-		etl::make_delegate<internal::on_raw_package>()
-	};
+	return {buf.Ring, {buf.Linear.begin(), buf.Linear.end()}, etl::make_delegate<internal::OnRawPackage>()};
 }
-}
+} // namespace breeze::referee::internal
 
 namespace breeze::referee
 {
 
-bool init(etl::optional<const device*> referee_uart, etl::optional<const device*> vt_uart)
+bool Init(etl::optional<const device*> refereeUart, etl::optional<const device*> vtUart)
 {
-	internal::stats::init();
+	internal::stats::Init();
 
-	if (referee_uart.has_value())
+	if (refereeUart.has_value())
 	{
-		internal::referee_parser.emplace(mk_parser(internal::referee_buf));
-		auto ok = internal::start_uart(*referee_uart, internal::referee_parser.value(), false);
-		if (!ok) return false;
+		internal::refereeParser.emplace(MkParser(internal::refereeBuf));
+		auto ok = internal::StartUart(*refereeUart, internal::refereeParser.value(), false);
+		if (!ok)
+		{
+			return false;
+		}
 	}
-	if (vt_uart.has_value())
+	if (vtUart.has_value())
 	{
-		internal::vt_parser.emplace(internal::mk_parser(internal::vt_buff));
-		auto ok = internal::start_uart(*vt_uart, internal::vt_parser.value(), true);
-		if (!ok) return false;
+		internal::vtParser.emplace(internal::MkParser(internal::vtBuff));
+		auto ok = internal::StartUart(*vtUart, internal::vtParser.value(), true);
+		if (!ok)
+		{
+			return false;
+		}
 	}
 	return true;
 }
-}
+} // namespace breeze::referee
