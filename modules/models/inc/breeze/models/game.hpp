@@ -21,10 +21,10 @@ namespace breeze::models
 {
 
 /**
- * @brief 比赛类型
+ * @brief 比赛类型(比赛模式)
  *
  */
-enum class GameType : std::uint8_t
+enum class GameMode : std::uint8_t
 {
 	None,
 	UC, ///< 超级对抗赛
@@ -59,10 +59,10 @@ enum class PenaltyLevel : std::uint8_t
 };
 
 /**
- * @brief 血量数据类型
+ * @brief 血量数据类型 (HP)
  *
  */
-struct HealthType
+struct Health
 {
 	std::uint16_t Value;
 };
@@ -70,33 +70,42 @@ struct HealthType
  * @brief 热量数据类型
  *
  */
-struct HeatType
+struct Heat
 {
 	std::uint16_t Value;
 };
 
 /**
- * @brief 发弹量类型
+ * @brief 发弹量
  *
  */
-struct AmmoType
+struct AmmoCount
 {
 	std::uint16_t Value;
 };
 
 /**
- * @brief 弹速类型
+ * @brief 弹药种类
  *
  */
-struct BulletSpeedType
+enum AmmoKind : std::uint8_t
 {
-	float Value;
+	Small, ///< 小弹丸(14mm)
+	Large, ///< 大弹丸(42mm)
 };
+
+/**
+ * @brief 弹速 (m/s)
+ * @note TODO: 后续改用物理model单位
+ *
+ */
+struct BulletSpeed : Meter<float>
+{};
 
 /**
  * @brief 机器人等级
  */
-struct LevelType
+struct Level
 {
 	std::uint8_t Value;
 };
@@ -121,7 +130,7 @@ struct Pose
 struct Buffs
 {
 	Percentage Recovery; ///< 每秒回复血量上限百分比
-	HeatType Cooling;    ///< 每秒热量冷却的量
+	Heat Cooling;        ///< 每秒热量冷却的量
 	Percentage Defence;  ///< 防御增益/减益百分比. 正为增益, 负为减益.
 	Percentage Attack;   ///< 攻击增益/减益百分比. 正为增益, 负为减益.
 };
@@ -144,13 +153,14 @@ enum class DamageSource : std::uint8_t
  * @brief 经济(金币)单位
  *
  */
-struct EconomyType
+struct Economy
 {
 	std::uint16_t Value;
 };
 
 /**
  * @brief 能量机关激活状态
+ * @note 冷知识, "Rune"取自RM英文手册"PowerRune", 即能量机关, 别尬黑我造词
  */
 enum class RuneState : std::uint8_t
 {
@@ -174,7 +184,7 @@ enum class FieldOccupation : std::uint8_t
  * @note 这会随赛季变更, 记得维护
  *
  */
-enum class FieldType : std::uint8_t
+enum class FieldKind : std::uint8_t
 {
 	Base,                  ///< 基地增益点
 	CentralHighland,       ///< 中央高地增益点
@@ -244,7 +254,7 @@ constexpr auto HEALTH_ROBOT_IDS = []() constexpr {
  * @brief 机器人的血量集合
  *
  */
-struct RobotHealths : IndexedEnumArray<RobotShortId, HealthType, HEALTH_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+struct RobotHealths : IndexedEnumArray<RobotShortId, Health, HEALTH_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
 {};
 
 /**
@@ -260,7 +270,7 @@ constexpr auto AMMO_ROBOT_IDS = []() constexpr {
  * @brief 机器人的发单量集合
  *
  */
-struct RobotAmmos : IndexedEnumArray<RobotShortId, AmmoType, AMMO_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+struct RobotAmmos : IndexedEnumArray<RobotShortId, AmmoCount, AMMO_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
 {};
 
 constexpr auto LEVEL_ROBOT_IDS = []() constexpr {
@@ -271,7 +281,7 @@ constexpr auto LEVEL_ROBOT_IDS = []() constexpr {
  * @brief 机器人的等级集合
  *
  */
-struct RobotLevels : IndexedEnumArray<RobotShortId, LevelType, LEVEL_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+struct RobotLevels : IndexedEnumArray<RobotShortId, Level, LEVEL_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
 {};
 
 /**
@@ -284,7 +294,7 @@ constexpr auto HEAT_ROBOT_IDS = AMMO_ROBOT_IDS;
  * @brief 机器人的热量集合
  *
  */
-struct RobotHeats : IndexedEnumArray<RobotShortId, HeatType, HEAT_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+struct RobotHeats : IndexedEnumArray<RobotShortId, Heat, HEAT_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
 {};
 
 /**
@@ -296,8 +306,7 @@ constexpr auto BULLET_SPEED_ROBOT_IDS = AMMO_ROBOT_IDS;
  * @brief 机器人弹速集合
  *
  */
-struct RobotBulletSpeeds
-    : IndexedEnumArray<RobotShortId, BulletSpeedType, BULLET_SPEED_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
+struct RobotBulletSpeeds : IndexedEnumArray<RobotShortId, BulletSpeed, BULLET_SPEED_ROBOT_IDS, ROBOT_SHORT_ID_VALUES>
 {};
 
 /**
