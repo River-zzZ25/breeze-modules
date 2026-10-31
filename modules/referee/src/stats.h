@@ -17,14 +17,6 @@ namespace breeze::referee::internal::stats
  */
 enum class Event : uint8_t
 {
-	/** 接收到的 UART 字节数。 */
-	RxBytes,
-	/** UART 接收块数量。 */
-	RxChunks,
-	/** 写入接收消息队列失败的次数。 */
-	RxQueueFull,
-	/** UART 接收停止事件数量。 */
-	RxUartStopped,
 	/** 找到帧起始符的次数。 */
 	ParserSofFound,
 	/** 帧头 CRC 校验失败的次数。 */
