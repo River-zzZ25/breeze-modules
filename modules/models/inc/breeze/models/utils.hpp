@@ -71,5 +71,16 @@ public:
 		assert(idx != INVALID && "enum id not in Ids list");
 		return _values[idx];
 	}
+	/**
+	 * @brief 根据枚举索引内容, 不存在则返回空指针
+	 *
+	 * @param id 枚举索引
+	 * @return TValue* 指向的内存. 不存在则返回nullptr
+	 */
+	TValue* At(TEnum id)
+	{
+		auto idx = INDEXER[static_cast<std::size_t>(id)];
+		return idx != INVALID ? &_values[idx] : nullptr;
+	}
 };
 } // namespace breeze::models

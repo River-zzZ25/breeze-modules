@@ -4,7 +4,6 @@
 
 #include <array>
 #include <cstring>
-#include <ramen.hpp>
 #include <tuple>
 #include <type_traits>
 
@@ -35,24 +34,17 @@ class Protocol final
 	static_assert(UniqueIds());
 
 public:
-	std::tuple<ramen::Pusher<Protocols>...> Out{};
-	ramen::Pushable<RawPackage> In = [this](const RawPackage& package) { Dispatch(package); };
-
-	Protocol() = default;
-	Protocol(const Protocol&) = delete;
-	Protocol(Protocol&&) = delete;
-	Protocol& operator=(const Protocol&) = delete;
-	Protocol& operator=(Protocol&&) = delete;
-
-	template <typename T>
-	ramen::Pusher<T>& OutOf()
+	template <typename Handler>
+	static void Dispatch(const RawPackage& package, Handler&& handler)
 	{
-		return std::get<ramen::Pusher<T>>(Out);
+		(DispatchOne<Protocols>(package, handler), ...);
 	}
+
+	Protocol() = delete;
 
 private:
 	template <typename T>
-	void DispatchOne(const RawPackage& package)
+	static void DispatchOne(const RawPackage& package, auto& handler)
 	{
 		if (package.CmdId != T::ID || package.Payload.size() != sizeof(T))
 		{
@@ -61,10 +53,8 @@ private:
 
 		T value{};
 		std::memcpy(&value, package.Payload.data(), sizeof(T));
-		std::get<ramen::Pusher<T>>(Out)(value);
+		handler(value);
 	}
-
-	void Dispatch(const RawPackage& package) { (DispatchOne<Protocols>(package), ...); }
 };
 
 } // namespace breeze::referee::protocol

@@ -13,55 +13,58 @@
 
 #include <breeze/messages/game.hpp>
 #include <breeze/messages/system.hpp>
-#include <breeze/models/game.hpp>
 #include <breeze/models/id.hpp>
 #include <etl/span.h>
 #include <ramen.hpp>
+#include <ramenx/logic.hpp>
 
 namespace breeze::referee
 {
 
+struct Outputs
+{
+	ramen::Pullable<models::RobotId> SelfId;
+	ramen::Pusher<models::messages::PowerManagementInfo> PowerManagementEvent{};
+	ramen::Pusher<models::messages::RegionDectectionInfo> RegionEvent{};
+	ramen::Pullable<models::messages::RobotPowers> AllyPowers;
+	ramen::Pullable<models::messages::GameState> GameState;
+	ramen::Pullable<models::messages::LogisticsInfo> LogisticsInfo;
+	ramen::Pusher<models::messages::DamageEvent> DamageEvent{};
+	ramen::Pusher<models::messages::OccupationEvent> OccupationEvent{};
+	ramen::Pusher<models::messages::RuneEvent> RuneEvent{};
+	ramen::Property<models::messages::DartHitEvent> DartHitEvent;
+	ramen::Pullable<models::messages::DartInfo> DartInfo;
+	ramen::Pullable<models::messages::RobotHealths> AllyHealths;
+	ramen::Pullable<models::messages::RobotLevels> AllyLevels;
+	ramen::Pullable<models::messages::RobotHeats> AllyHeats;
+	ramen::Pullable<models::messages::RobotAmmos> AllyAmmos;
+	ramen::Pullable<models::messages::RobotBuffs> AllyBuffs;
+	ramen::Pullable<models::messages::RobotPoses> AllyPoses;
+
+};
+
 /**
- * @brief 裁判系统模块.
+ * @brief 裁判系统模块, 提供RAMEN输出端口与原始输入端口.
  * @par 输出接口设计原则
  * - 低频数据使用触发式 (Pusher), 在调用输入端口的上下文中处理
  * - 高频数据使用拉取式 (Pullable)
  */
 struct Module
 {
-	ramen::Pullable<models::RobotId> OutSelfId;
-	ramen::Pusher<models::messages::PowerManagementInfo> OutPowermanagementEvent;
-	ramen::Pusher<models::messages::RegionDectectionInfo> OutRegionEvent;
-	ramen::Pullable<models::messages::RobotPowers> OutAllyPowers;
-
-	ramen::Pullable<models::messages::GameState> OutGamestate;
-	ramen::Pullable<models::messages::LogisticsInfo> OutLogisticsInfo;
-
-	ramen::Pusher<models::messages::DamageEvent> OutDamageEvent;
-	ramen::Pusher<models::messages::OccupationEvent> OutOccupationEvent;
-	ramen::Pusher<models::messages::RuneEvent> OutRuneEvent;
-	ramen::Pusher<models::messages::DartHitEvent> OutDartHitEvent;
-	ramen::Pullable<models::messages::DartInfo> OutDartInfo;
-
-	ramen::Pullable<models::messages::RobotHealths> OutAllyHealths;
-	ramen::Pullable<models::messages::RobotLevels> OutAllyLevels;
-	ramen::Pullable<models::messages::RobotHeats> OutAllyHeats;
-	ramen::Pullable<models::messages::RobotAmmos> OutAllyAmmos;
-	ramen::Pullable<models::messages::RobotBuffs> OutAllyBuffs;
-	ramen::Pullable<models::messages::RobotPoses> OutAllyPoses;
-
-	/// @brief 裁判系统原始数据输入
+	Outputs Out;
 	ramen::Pushable<etl::span<const uint8_t>> InReferee;
-	/// @brief 图传原始数据输入
 	ramen::Pushable<etl::span<const uint8_t>> InVT;
 
-	Module();
+	static Module& Instance();
 	Module(const Module&) = delete;
 	Module(Module&&) = delete;
 	Module& operator=(const Module&) = delete;
 	Module& operator=(Module&&) = delete;
+
+private:
+	Module();
 };
 
-extern Module module;
+extern Module& module;
 
 } // namespace breeze::referee

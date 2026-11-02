@@ -16,6 +16,13 @@
 namespace breeze::models
 {
 
+template <typename T>
+struct ValueType
+{
+	T Value;
+	bool operator==(const ValueType&) const = default;
+};
+
 /**
  * @brief 整数百分比
  *
@@ -29,10 +36,8 @@ struct Percentage
  * @brief 时间, 单位秒
  */
 template <typename T>
-struct Seconds
-{
-	T Value;
-};
+struct Seconds : ValueType<T>
+{};
 
 /**
  * @brief 能量，单位焦耳

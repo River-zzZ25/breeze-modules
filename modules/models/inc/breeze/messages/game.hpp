@@ -178,6 +178,8 @@ struct DartHitEvent
 {
 	Seconds<std::uint16_t> LastTime; ///< 上一次击中时间(比赛时间)
 	DartTarget LastTarget;           ///< 上一次击中目标
+
+	bool operator==(const DartHitEvent& other) const = default;
 };
 
 /**
