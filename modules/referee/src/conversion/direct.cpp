@@ -112,7 +112,9 @@ DamageSource ToDamageSource(std::uint8_t value)
 
 models::RobotId Direct::ToSelfId(const protocol::rx::RobotStatus& value)
 {
-	const auto team = [id = value.RobotId]() { return id > 0 ? id < 100 ? Team::Red : Team::Blue : Team::Neutral; }();
+	const auto team = [id = value.RobotId]() {
+		return id > 0 ? id < 100 ? TeamKind::Red : TeamKind::Blue : TeamKind::Neutral;
+	}();
 	return {ToShortId(value.RobotId), team};
 }
 

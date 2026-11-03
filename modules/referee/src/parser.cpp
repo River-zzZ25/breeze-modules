@@ -144,9 +144,10 @@ void StreamParser::Feed(
     Observer onNext
 )
 {
-	if (ringBuffer.size() < data.size())
+	const auto overflow = data.size() > ringBuffer.available() ? data.size() - ringBuffer.available() : 0U;
+	if (overflow != 0U)
 	{
-		ringBuffer.pop(data.size() - ringBuffer.size());
+		ringBuffer.pop(etl::min(overflow, ringBuffer.size()));
 	}
 
 	ringBuffer.push(data.begin(), data.end());

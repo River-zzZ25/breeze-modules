@@ -64,7 +64,7 @@ struct RobotShortIdInfo
  * @brief 阵营信息(红蓝方)
  *
  */
-enum class Team : std::uint8_t
+enum class TeamKind : std::uint8_t
 {
 	Neutral, ///< 中立
 	Red,     ///< 红方
@@ -74,7 +74,7 @@ enum class Team : std::uint8_t
 struct RobotId
 {
 	RobotShortId ShortId;
-	Team Team;
+	TeamKind Team;
 };
 
 /**
@@ -156,7 +156,7 @@ constexpr std::uint8_t ToDigit(const RobotShortId sid)
 constexpr std::uint8_t ToNum(const RobotId id)
 {
 	constexpr std::uint8_t TEAM_MOD = 100;
-	std::uint8_t teamDigit = Team() == Team::Blue ? TEAM_MOD : 0;
+	std::uint8_t teamDigit = TeamKind() == TeamKind::Blue ? TEAM_MOD : 0;
 	return ToDigit(id.ShortId) + teamDigit;
 }
 

@@ -96,8 +96,8 @@ using models::RobotBuffs;
  */
 struct LogisticsInfo
 {
-	Economy Economy;     ///< 金币
-	Level CryptionLevel; ///< 加密等级(对方干扰波难度等级)
+	EconomyPoint Economy; ///< 金币
+	Level CryptionLevel;  ///< 加密等级(对方干扰波难度等级)
 };
 
 /**

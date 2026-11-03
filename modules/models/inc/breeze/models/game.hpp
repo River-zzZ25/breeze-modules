@@ -153,7 +153,7 @@ enum class DamageSource : std::uint8_t
  * @brief 经济(金币)单位
  *
  */
-struct Economy
+struct EconomyPoint
 {
 	std::uint16_t Value;
 };
