@@ -137,27 +137,33 @@ static Iterator SearchAndEmit(
 	return itNext;
 }
 
-void StreamParser::Feed(etl::span<const uint8_t> data)
+void StreamParser::Feed(
+    RingBuffer& ringBuffer,
+    TmpBuffer tmpBuffer,
+    etl::span<const uint8_t> data,
+    Observer onNext
+)
 {
-	if (_ringBuffer.size() < data.size())
+	const auto overflow = data.size() > ringBuffer.available() ? data.size() - ringBuffer.available() : 0U;
+	if (overflow != 0U)
 	{
-		_ringBuffer.pop(data.size() - _ringBuffer.size());
+		ringBuffer.pop(etl::min(overflow, ringBuffer.size()));
 	}
 
-	_ringBuffer.push(data.begin(), data.end());
+	ringBuffer.push(data.begin(), data.end());
 
-	const auto itBegin = _ringBuffer.begin();
-	const auto itEnd = _ringBuffer.end();
+	const auto itBegin = ringBuffer.begin();
+	const auto itEnd = ringBuffer.end();
 
-	auto itNext = _ringBuffer.begin();
-	auto itRemain = _ringBuffer.begin();
+	auto itNext = ringBuffer.begin();
+	auto itRemain = ringBuffer.begin();
 
 	while (itNext != itEnd)
 	{
-		itRemain = SearchAndEmit(itNext, itEnd, _onNext, _tmpBuffer);
+		itRemain = SearchAndEmit(itNext, itEnd, onNext, tmpBuffer);
 	}
 	const auto dropCount = static_cast<size_t>(itRemain - itBegin);
-	_ringBuffer.pop(dropCount);
+	ringBuffer.pop(dropCount);
 }
 
 } // namespace breeze::referee

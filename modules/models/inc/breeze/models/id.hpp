@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 namespace breeze::models
@@ -63,7 +64,7 @@ struct RobotShortIdInfo
  * @brief 阵营信息(红蓝方)
  *
  */
-enum class Team : std::uint8_t
+enum class TeamKind : std::uint8_t
 {
 	Neutral, ///< 中立
 	Red,     ///< 红方
@@ -73,7 +74,7 @@ enum class Team : std::uint8_t
 struct RobotId
 {
 	RobotShortId ShortId;
-	Team Team;
+	TeamKind Team;
 };
 
 /**
@@ -155,8 +156,30 @@ constexpr std::uint8_t ToDigit(const RobotShortId sid)
 constexpr std::uint8_t ToNum(const RobotId id)
 {
 	constexpr std::uint8_t TEAM_MOD = 100;
-	std::uint8_t teamDigit = Team() == Team::Blue ? TEAM_MOD : 0;
+	std::uint8_t teamDigit = TeamKind() == TeamKind::Blue ? TEAM_MOD : 0;
 	return ToDigit(id.ShortId) + teamDigit;
 }
+
+/**
+ * @brief RobotType的元数据
+ * @warning 务必与 @ref RobotType 保持同步!
+ *
+ */
+constexpr auto ROBOT_TYPE_VALUES = []() {
+	using enum RobotType;
+	return std::array{Unknown, Hero, Engineer, Juggernaut, Infantry, Sentry, Drone};
+}();
+
+/**
+ * @brief RobotShortId的元数据
+ * @warning 务必与 @ref RobotShortId 保持同步!
+ *
+ */
+constexpr auto ROBOT_SHORT_ID_VALUES = []() {
+	using enum RobotShortId;
+	return std::array{
+	    Unknown0, Hero1, Engineer2, Juggernaut1, Infantry3, Infantry4, Infantry5, Sentry6, Drone7,
+	};
+}();
 
 } // namespace breeze::models
