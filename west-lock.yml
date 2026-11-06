@@ -1,0 +1,83 @@
+manifest:
+  group-filter:
+  - -babblesim
+  - -optional
+  - -testing
+  projects:
+  - name: breeze
+    url: https://github.com/RobotPilots-SZU/breeze
+    revision: 3a0bcb9119c4d4f89d1f0abc3532d657bf669d77
+    path: zephyr-extras/breeze
+  - name: algo
+    url: https://github.com/RobotPilots-SZU/algo
+    revision: 2015dec93dc18910512f3460a9f2824034a656c7
+    path: zephyr-extras/algo
+  - name: ramenx
+    url: https://github.com/RobotPilots-SZU/ramenx
+    revision: adc0c8ea24ffeded1836493092a3661087215a37
+    path: zephyr-extras/ramenx
+  - name: zephyr
+    url: https://github.com/zephyrproject-rtos/zephyr
+    revision: f3fc249035296b87c75fa808b3abf78829fe9378
+    path: zephyr-extras/zephyr
+    west-commands: scripts/west-commands.yml
+  - name: etl
+    url: https://github.com/ETLCPP/etl.git
+    revision: b2c437c13e241ccc28dbd8f4241a2c051eb4f7c0
+    path: zephyr-extras/breeze-sdk/modules/lib/etl
+  - name: cmsis
+    url: https://github.com/zephyrproject-rtos/cmsis
+    revision: 512cc7e895e8491696b61f7ba8066b4a182569b8
+    path: zephyr-extras/modules/hal/cmsis
+    groups:
+    - hal
+  - name: cmsis-dsp
+    url: https://github.com/zephyrproject-rtos/cmsis-dsp
+    revision: 45d23287f5b41be49612281a5e7c802c6a415388
+    path: zephyr-extras/modules/lib/cmsis-dsp
+  - name: cmsis-nn
+    url: https://github.com/zephyrproject-rtos/cmsis-nn
+    revision: 73591f72850bfebe95c6f30f6e75a773abb711cd
+    path: zephyr-extras/modules/lib/cmsis-nn
+  - name: cmsis_6
+    url: https://github.com/zephyrproject-rtos/CMSIS_6
+    revision: 1c1840af7a7e757d6e2fec3ddb0e5ce0dfcc93c8
+    path: zephyr-extras/modules/hal/cmsis_6
+    groups:
+    - hal
+  - name: fatfs
+    url: https://github.com/zephyrproject-rtos/fatfs
+    revision: 4f60a12c58c3de4246857ad87c40239ecd93349b
+    path: zephyr-extras/modules/fs/fatfs
+    groups:
+    - fs
+  - name: hal_st
+    url: https://github.com/zephyrproject-rtos/hal_st
+    revision: ce795a9b0de623022c17d2ff394587c024aec850
+    path: zephyr-extras/modules/hal/st
+    groups:
+    - hal
+  - name: hal_stm32
+    url: https://github.com/zephyrproject-rtos/hal_stm32
+    revision: 2fd0502dd5e02aa3e95a2f01278fdf27e42d7229
+    path: zephyr-extras/modules/hal/stm32
+    groups:
+    - hal
+  - name: littlefs
+    url: https://github.com/zephyrproject-rtos/littlefs
+    revision: e9a8638fc228e43a3156ed3ac602229af3e3c1d5
+    path: zephyr-extras/modules/fs/littlefs
+    groups:
+    - fs
+  - name: picolibc
+    url: https://github.com/zephyrproject-rtos/picolibc
+    revision: 01254932e8e81085817ed61fd858648584ffe37c
+    path: zephyr-extras/modules/lib/picolibc
+  - name: segger
+    url: https://github.com/zephyrproject-rtos/segger
+    revision: 50892fdbcf2f570e67baa72b8894a66b16946f72
+    path: zephyr-extras/modules/debug/segger
+    groups:
+    - debug
+  self:
+    path: .

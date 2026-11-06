@@ -5,8 +5,6 @@ out/
 cmake-build-*/
 
 # ---- Zephyr generated ----
-zephyr/module.yml.tmp
-.west/
 twister-out/
 twister-out.*/
 
@@ -21,11 +19,15 @@ twister-out.*/
 *.d
 
 # ---- Editor / IDE ----
-.vscode/
-.idea/
 *.swp
 *~
 
 # ---- OS files ----
 .DS_Store
 Thumbs.db
+
+/zephyr-extras
+
+.direnv
+result
+.cache
