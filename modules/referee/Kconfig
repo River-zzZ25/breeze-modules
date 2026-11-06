@@ -1,0 +1,29 @@
+# Copyright (c) 2026 RobotPilots-SZU
+# SPDX-License-Identifier: Apache-2.0
+
+config BREEZE_MODULE_REFEREE
+	bool "Referee module"
+	depends on CPP
+	depends on ALGO
+	help
+	  Parses referee protocol streams and exposes typed dataflow ports.
+
+if BREEZE_MODULE_REFEREE
+
+config BREEZE_MODULE_REFEREE_RING_BUF_SIZE
+	int "Referee Module ring buffer size (bytes)"
+	default 1024
+	range 320 2048
+	help
+	  Size of the ring buffer used by the referee module, in bytes.
+	  Must be a power-of-two-friendly value for the underlying
+	  ring buffer implementation.
+
+config BREEZE_MODULE_REFEREE_LINEAR_BUF_SIZE
+	int "Referee Module linear buffer size (bytes)"
+	default 512
+	range 320 1024
+	help
+	  Size of the linear scratch buffer used to inspect referee frames, in bytes.
+
+endif # BREEZE_MODULE_REFEREE
