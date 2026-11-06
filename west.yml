@@ -1,0 +1,6 @@
+manifest:
+  self:
+    path: .
+    import:
+      file: dependencies.yml
+      path-prefix: zephyr-extras

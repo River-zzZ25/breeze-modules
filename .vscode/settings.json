@@ -1,0 +1,11 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}",
+    "nixEnvSelector.nixFile": "${workspaceFolder}/flake.nix",
+    "nixEnvSelector.useFlakes": true,
+    "nixEnvSelector.flakeShell": "default",
+    "clangd.arguments": [
+        "--background-index",
+        "--completion-style=detailed",
+    ],
+    "cmake.configureOnOpen": false
+}
