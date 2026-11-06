@@ -1,0 +1,9 @@
+{
+	"recommendations": [
+		"ms-vscode.cpptools",
+		"kylemicallefbonnici.dts-lsp",
+		"llvm-vs-code-extensions.vscode-clangd",
+		"xaver.clang-format"
+	],
+	"unwantedRecommendations": []
+}

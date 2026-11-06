@@ -21,11 +21,15 @@ twister-out.*/
 *.d
 
 # ---- Editor / IDE ----
-.vscode/
-.idea/
 *.swp
 *~
 
 # ---- OS files ----
 .DS_Store
 Thumbs.db
+
+/zephyr-extras
+
+.direnv
+result
+.cache
