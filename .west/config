@@ -1,0 +1,7 @@
+[manifest]
+path = .
+file = west-lock.yml
+
+[zephyr]
+base = zephyr-extras/zephyr
+

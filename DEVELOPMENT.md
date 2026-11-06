@@ -24,6 +24,20 @@ west build test -p
 west build -t run
 ```
 
+## 哈希锁定
+
+使用命令来更新哈希锁定:
+
+```sh
+west manifest --freeze -o west-lock.yml
+```
+
+更新锁定清单后, 更新本地的仓库
+
+```sh
+west update
+```
+
 ## 其他要求
 
 测试app很重要, 代码仍然需要规范化提交并推送.
