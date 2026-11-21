@@ -19,6 +19,6 @@ if(CONFIG_BREEZE_MODULES)
   add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_CHASSIS modules/chassis)
   add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_REFEREE modules/referee)
   # add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_GIMBAL  modules/gimbal)
-  # add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_SHOOTER modules/shooter)
+  add_subdirectory_ifdef(CONFIG_BREEZE_MODULE_SHOOTER modules/shooter)
 
 endif()
