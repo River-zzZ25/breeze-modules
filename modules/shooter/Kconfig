@@ -1,16 +1,10 @@
-# Copyright (c) 2025 RobotPilots-SZU
+# Copyright (c) 2026 RobotPilots-SZU
 # SPDX-License-Identifier: Apache-2.0
 
 config BREEZE_MODULE_SHOOTER
 	bool "Shooter module"
+	depends on CPP
+	depends on RAMENX
+	depends on ALGO
 	help
-	  Shooter control module. Consumes shooter command topics, drives the
-	  shooter motors, and publishes shooter state.
-
-if BREEZE_MODULE_SHOOTER
-
-module = BREEZE_MODULE_SHOOTER
-module-str = breeze shooter
-source "subsys/logging/Kconfig.template.log_config"
-
-endif # BREEZE_MODULE_SHOOTER
+	  Shooter module (friction wheel + feeder) built on ramen actors.
