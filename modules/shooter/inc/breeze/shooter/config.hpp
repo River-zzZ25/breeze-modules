@@ -46,8 +46,8 @@ struct PidConfig
 	float Kd; // 微分系数
 
 	float InputDeadband;           // 输入死区
-	float MaxOutput;               // 最大输出幅值，单位与调用方输出物理量一致；Fric 为 N·m
-	float MaxIntegral;             // 最大积分
+	float MaxOutput;               // 最大输出幅值, 0 表示不限幅; Fric 为 N·m
+	float MaxIntegral;             // 误差积分累计量上限(误差·s), 非 Iout 上限; 0 表示不限幅
 	float InputIntegralSeparation; // 积分分离值
 };
 
@@ -90,10 +90,9 @@ struct FricConfig
  */
 struct FeedStuckConfig
 {
-	float TorqueThreshold{};              ///< 堵转判定力矩阈值(N·m)
-	float SpeedThreshold{};               ///< 堵转判定速度阈值(rpm)
-	std::uint16_t ConfirmMs{};            ///< 堵转确认持续时间(ms)
-	etl::optional<std::int8_t> TorqueDir; ///< 电机原始坐标下的拨弹力矩方向 (1 或 -1); 未设置时采用 Direction
+	float TorqueThreshold{};   ///< 堵转判定力矩阈值(N·m)
+	float SpeedThreshold{};    ///< 堵转判定速度阈值(rpm)
+	std::uint16_t ConfirmMs{}; ///< 堵转确认持续时间(ms)
 };
 
 /**
@@ -108,24 +107,24 @@ struct FeedResetConfig
 
 /**
  * @brief 相对等距弹位, 以复位完成位置为基准
+ *
  */
 struct RelativeFeedPosition
 {
-	float Step{};            ///< 相邻弹位位移(encoder), 必须为正
+	float Step{};            ///< 相邻弹位的拨盘轴位移(度), 大于 0 且不超过 180
 	FeedResetConfig Reset{}; ///< 每次唤醒执行机械复位, 完成后建立弹位基准
 };
 
 /**
  * @brief 绝对单圈弹位表
- * @note 坐标以标定编码器零点为原点, 拨弹方向为正.
- *       Positions 非空, 在 [0, CountsPerTurn) 内严格递增.
- *       表中最后一个弹位的下一弹位是下一圈的第一个弹位.
+ * @note 表值与反馈使用同一输出轴坐标, 角度在 [0, 360) 内, 不做极性转换.
+ *       Positions 非空, 应用层按实际拨弹顺序传入, 下一项为下一发, 上一项为上一发.
+ *       首尾循环, 相邻弹位沿 Direction 指定的拨弹方向间隔不超过 180 度.
  *       表的底层数组须在 Feed 生命周期内保持有效且不修改.
  */
 struct AbsoluteFeedPosition
 {
-	float CountsPerTurn{};              ///< 一个弹位表周期的编码器计数, 必须为正, 与反馈使用同一轴的单位
-	etl::span<const float> Positions{}; ///< 一圈内按拨弹顺序排列的弹位(encoder)
+	etl::span<const float> Positions{}; ///< 一圈内按拨弹顺序排列的拨盘轴弹位(度)
 };
 
 using FeedPositionConfig = etl::variant<RelativeFeedPosition, AbsoluteFeedPosition>;
@@ -139,7 +138,7 @@ struct FeedShootConfig
 	std::uint16_t ShootTimeOut{};              ///< 单次拨弹超时时间(ms)
 	std::uint16_t HandleStuckReverseTimeout{}; ///< 处理堵转反转超时时间(ms)
 	std::uint16_t HandleStuckReloadTimeout{};  ///< 处理堵转复位重载超时时间(ms)
-	float PositionTolerance{};                 ///< 清堵目标位置到位容差(encoder)
+	float PositionTolerance{};                 ///< 目标位置到位容差(度)
 };
 /**
  * @brief 拨盘配置结构体
@@ -147,12 +146,13 @@ struct FeedShootConfig
  */
 struct FeedConfig
 {
-	MotorDirection Direction{};                          ///< 拨盘电机安装方向
-	PidConfig PositionPid{};                             ///< 位置环配置, 输出目标转速(rpm)
-	PidConfig SpeedPid{};                                ///< 速度环配置, 输出力矩(N·m)
-	FeedStuckConfig Stuck{};                             ///< 堵转配置
+	MotorDirection Direction;                            ///< 拨盘电机安装方向
+	PidConfig PositionPid;                               ///< 位置环配置, 输出目标转速(rpm)
+	PidConfig PositionSpeedPid;                          ///< 速度环配置, 输出力矩(N·m)
+	PidConfig SpeedPid;                                  ///< 速度环配置, 输出力矩(N·m)
+	FeedStuckConfig Stuck;                               ///< 堵转配置
 	FeedPositionConfig Position{RelativeFeedPosition{}}; ///< 相对等距弹位或绝对单圈弹位表
-	FeedShootConfig Shoot{};                             ///< 拨弹配置
+	FeedShootConfig Shoot;                               ///< 拨弹配置
 };
 
 /**
@@ -163,34 +163,36 @@ struct FeedConfig
  */
 struct ShootSpeedAdaptConfig
 {
-	float InintialFricTargetSpeed{};             ///< 初始摩擦轮目标转速(rpm)
-	etl::optional<float> LobInitialFricSpeed{};  ///< 吊射初始摩擦轮转速(rpm)
-	etl::optional<float> IdealSpeedMin{};        ///< 理想弹速最小值(m/s)
-	etl::optional<float> IdealSpeedMax{};        ///< 理想弹速最大值(m/s)
-	etl::optional<float> FricSpeedMin{};         ///< 摩擦轮最小转速(rpm)
-	etl::optional<float> FricSpeedMax{};         ///< 摩擦轮最大转速(rpm)
-	etl::optional<float> OverSpeedAdjustment{};  ///< 超速时摩擦轮转速调整量
-	etl::optional<float> LowSpeedAdjustment{};   ///< 欠速时摩擦轮转速调整量
-	etl::optional<uint16_t> LowSpeedMaxCount{};  ///< 欠速最大计数，超过这个计数就认为是欠速
-	etl::optional<float> HighSpeedAdjustment{};  ///< 高速时摩擦轮转速调整量
-	etl::optional<uint16_t> HighSpeedMaxCount{}; ///< 高速最大计数，超过这个计数就认为是高速
+	bool Enable{};                   ///< 是否启用弹速自适应
+	float InintialFricTargetSpeed{}; ///< 初始摩擦轮目标转速(rpm)
+	float LobInitialFricSpeed{};     ///< 吊射初始摩擦轮转速(rpm)
+	float IdealSpeedMin{};           ///< 理想弹速最小值(m/s)
+	float IdealSpeedMax{};           ///< 理想弹速最大值(m/s)
+	float FricSpeedMin{};            ///< 摩擦轮最小转速(rpm)
+	float FricSpeedMax{};            ///< 摩擦轮最大转速(rpm)
+	float OverSpeedAdjustment{};     ///< 超速时摩擦轮转速调整量
+	float LowSpeedAdjustment{};      ///< 欠速时摩擦轮转速调整量
+	uint16_t LowSpeedMaxCount{};     ///< 欠速最大计数，超过这个计数就认为是欠速
+	float HighSpeedAdjustment{};     ///< 高速时摩擦轮转速调整量
+	uint16_t HighSpeedMaxCount{};    ///< 高速最大计数，超过这个计数就认为是高速
 };
 
 /**
  * @brief 热量限制配置
  *
- * @note 该配置用于根据热量值来限制射击频率，以防止过热。
- *       在没有设置其他属性时，默认没有热量限制，以最高射击频率进行射击。
+ * @note 两项检测由对应标志启用; 未填写的数值默认为零.
  */
 struct ShootHeatLimitConfig
 {
-	etl::optional<float> FeedSpeedCoefficient;    ///< 射频→拨盘速度系数
-	float HighHeatShootingFreq{};                 ///< 高热量时射频(Hz),默认没有热量限制的射击频率；
-	etl::optional<uint16_t> LowHeatValue;         ///< 低热量判断阈值
-	etl::optional<float> LowHeatShootingFreq;     ///< 低热量时射频(Hz)
-	etl::optional<uint16_t> VeryLowHeatValue;     ///< 极低热量判断阈值
-	etl::optional<float> VeryLowHeatShootingFreq; ///< 极低热量时射频(Hz)
-	etl::optional<uint16_t> NoShootHeatValue;     ///< 停止发射热量阈值
+	bool AllowShootCountEnable{};     ///< 是否启用剩余发弹量检测
+	bool HeatLimitEnable{};           ///< 是否启用热量限制
+	float FeedSpeedCoefficient{};     ///< 连发射频到拨盘转速的换算系数(rpm/Hz)
+	float HighHeatShootingFreq{};     ///< 剩余热量充足或未启用热量限制时的连发射频(Hz)
+	std::uint16_t LowHeatValue{};     ///< 剩余热量低档阈值
+	float LowHeatShootingFreq{};      ///< 剩余热量低档连发射频(Hz)
+	std::uint16_t VeryLowHeatValue{}; ///< 剩余热量极低档阈值
+	float VeryLowHeatShootingFreq{};  ///< 剩余热量极低档连发射频(Hz)
+	std::uint16_t NoShootHeatValue{}; ///< 剩余热量停止发射阈值
 };
 
 /**
@@ -202,7 +204,7 @@ template <std::size_t FricCount>
 struct ShooterConfig
 {
 	etl::array<FricConfig, FricCount> FricConf{}; ///< 摩擦轮配置
-	float FricReverseSpeed{};                     ///< 整组清堵反转速度大小(rpm), 必须为正
+	float FricReverseSpeed{};                     ///< 整组清堵反转速度大小(rpm), 正值
 	FeedConfig FeedConf{};                        ///< 拨盘配置
 	ShootSpeedAdaptConfig SpeedAdaptConf{};       ///< 弹速自适应配置
 	ShootHeatLimitConfig HeatLimitConf{};         ///< 热量限制配置

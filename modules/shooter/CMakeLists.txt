@@ -4,6 +4,8 @@ file(GLOB SHOOTER_SOURCE CONFIGURE_DEPENDS
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
 )
+# Shooter 模板实现由 shooter.hpp 包含, 不单独编译.
+list(REMOVE_ITEM SHOOTER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/shooter.cpp")
 zephyr_library_sources(${SHOOTER_SOURCE})
 
 target_include_directories(breeze_shooter

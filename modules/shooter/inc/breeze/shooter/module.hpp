@@ -30,12 +30,12 @@ public:
 	 */
 	struct Input
 	{
-		ramen::Pushable<std::uint16_t> HeatValue;               ///< 热量值输入
+		ramen::Pushable<std::uint16_t> HeatValue;               ///< 热量值输入(计算出剩余热量后传入)
 		ramen::Pushable<std::uint16_t> AllowShootCount;         ///< 允许发弹量
 		ramen::Pushable<breeze::models::ShooterCmd> ShooterCmd; ///< 射击命令输入
 		ramen::Pushable<float> LatestShootSpeed;                ///< 最新发射弹速输入
-		ramen::Pushable<FricFeedback> FricFeedback;             ///< 摩擦轮反馈输入
-		ramen::Pushable<FeedFeedback> FeedFeedback;             ///< 拨盘反馈
+		ramen::Puller<FricFeedback> FricFeedback;               ///< 摩擦轮反馈输入
+		ramen::Puller<FeedFeedback> FeedFeedback;               ///< 拨盘反馈
 	};
 
 	/**
@@ -57,10 +57,12 @@ public:
 	 */
 	explicit Module(const ShooterConfig<FricCount>& config);
 	/**
-	 * @brief 启动发射模块
+	 * @brief 设置发射模块使能; 失能进入 Sleep, 使能恢复正常工作
 	 *
+	 * @note 当前仅声明; 内部 Shooter 将 ShootState 传给 Fric 和 Feed.
+	 *       重复使能不重启状态机; 相对模式拨盘唤醒后先复位.
 	 */
-	bool Start();
+	void SetEnabled(bool enabled);
 	/**
 	 * @brief 重置发射模块
 	 *

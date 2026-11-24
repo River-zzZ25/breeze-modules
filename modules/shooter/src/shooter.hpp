@@ -12,7 +12,10 @@
 
 #pragma once
 
+#include "feed.hpp"
+#include "fric.hpp"
 #include "state.hpp"
+#include <breeze/models/control.hpp>
 #include <breeze/shooter/config.hpp>
 #include <breeze/shooter/io.hpp>
 #include <cstddef>
@@ -20,8 +23,7 @@
 #include <etl/array.h>
 #include <etl/circular_buffer.h>
 #include <etl/optional.h>
-#include <etl/span.h>
-#include <fric.hpp>
+#include <utility>
 
 namespace breeze::shooter
 {
@@ -29,28 +31,14 @@ namespace breeze::shooter
 constexpr std::uint8_t SPEED_STAT_COUNT = 50;
 constexpr std::uint16_t SPEED_COUNT_MAX = 10;
 
-class Feed;
-
-/**
- * @brief 发射模式枚举
- *
- */
-enum class ShootMode : std::uint8_t
-{
-	None,   ///< 无模式
-	Single, ///< 单发
-	Repeat  ///< 连发
-};
-
 /**
  * @brief
  * @note 用于存储发射使能信息。
  */
 struct ShootEnableInfo
 {
-	bool CtrlFlag;  ///< 遥控器状态：关控直接整个模块离线，开控才允许发射
-	ShootMode Mode; ///< 发射模式：判断用户的发射模式是单发还是连发
-	bool Enable;    ///< 是否允许发射：判断当前是否可以发射
+	breeze::models::FiringIntent Intent{breeze::models::FiringIntent::Idle}; ///< 原始发射意图
+	bool Enable{}; ///< 模块使能, 由 Module::SetEnabled 提供
 };
 
 /**
@@ -98,7 +86,7 @@ struct ShootSpeedAdaptInfo
 struct ShooterControlInfo
 {
 	ShootEnableInfo EnableInfo{};                        ///< 发射使能信息
-	ShootState State{};                                  ///< 发射模块状态
+	ShootState State{ShootState::Sleep};                 ///< 发射模块状态
 	etl::optional<ShootSpeedAdaptInfo> SpeedAdaptInfo{}; ///< 弹速自适应信息
 	etl::optional<ShootSpeedStats> SpeedStats{};         ///< 弹速统计信息
 };
@@ -119,7 +107,38 @@ public:
 	 * @param conf Shooter配置
 	 * @note 该构造函数用于初始化Shooter类的配置，包括摩擦轮和拨盘的配置，以及弹速自适应和热量限制的配置。
 	 */
-	Shooter(const ShooterConfig<FricCount>& conf);
+	explicit Shooter(const ShooterConfig<FricCount>& conf);
+
+	/**
+	 * @brief 启动 Shooter 功能入口, 当前执行一次 Update(1ms)
+	 *
+	 * @note 不创建线程或周期调度; 后续功能在此补充, 模块使能仍由 Module 接口负责.
+	 */
+	void Start();
+
+	/**
+	 * @brief 接收单个新弹速样本(m/s); 当前仅声明
+	 *
+	 */
+	void UpdateShootSpeed(float speed);
+
+	/**
+	 * @brief 读取拨盘状态
+	 *
+	 */
+	[[nodiscard]] const FeedInfo& GetFeedStatus() const;
+
+	/**
+	 * @brief 读取拨盘输出力矩(N·m), 电机原始极性
+	 *
+	 */
+	[[nodiscard]] float GetFeedOutput() const;
+
+	/**
+	 * @brief 读取整机内部状态
+	 *
+	 */
+	[[nodiscard]] ShootState GetState() const { return _controlInfo.State; }
 
 	/**
 	 * @brief 更新整组摩擦轮
@@ -132,8 +151,11 @@ public:
 	 *       到时恢复用户 Running 目标并清零堵转计数, 仍满足条件时再次进入清堵.
 	 *       反转期间不检测堵转, 停止类命令优先并立即中止清堵.
 	 */
-	void UpdateFric(const etl::array<FricCmd, FricCount>& commands,
-	                const etl::array<FricFeedback, FricCount>& feedbacks, float dtMs);
+	void UpdateFric(
+	    const etl::array<FricCmd, FricCount>& commands,
+	    const etl::array<FricFeedback, FricCount>& feedbacks,
+	    float dtMs
+	);
 
 	/**
 	 * @brief 读取指定摩擦轮状态
@@ -149,12 +171,6 @@ public:
 	[[nodiscard]] float GetFricOutput(std::size_t index) const;
 
 	/**
-	 * @brief 发射模块启动函数
-	 * @note 该函数用于启动发射模块，将模块状态设置为运行状态。
-	 */
-	void ShootStart();
-
-	/**
 	 * @brief 发射模块重置函数
 	 *
 	 */
@@ -166,16 +182,44 @@ public:
 	Shooter& operator=(Shooter&&) = delete;
 
 private:
+	/**
+	 * @brief 按配置索引直接构造不可复制、不可移动的 Fric 数组
+	 *
+	 */
+	template <std::size_t... Indices>
+	Shooter(const ShooterConfig<FricCount>& conf, std::index_sequence<Indices...>);
+
+	/**
+	 * @brief 控制周期更新入口, 由 Start 调用; 控制业务待补充
+	 *
+	 */
+	void Update(float dtMs);
+
+	/**
+	 * @brief 更新整机状态机; 当前仅声明
+	 *
+	 */
+	void UpdateState();
+
+	/**
+	 * @brief 根据热量和弹量限制发射; 当前仅声明
+	 *
+	 */
+	void UpdateHeatLimit(std::uint16_t heatValue, std::uint16_t allowShootCount);
+
+	/**
+	 * @brief 更新拨盘控制; 当前仅声明
+	 *
+	 */
+	void UpdateFeed(const FeedCmd& command, const FeedFeedback& feedback, float dtMs);
+
 	ShooterConfig<FricCount> _conf;
-	ShooterControlInfo _controlInfo;
+	ShooterControlInfo _controlInfo{};
 
 	etl::array<Fric, FricCount> _fric; ///< 摩擦轮对象
-	std::size_t _fricCount;            ///< 摩擦轮数量
-	Feed* _feed;                       ///< 拨盘对象
+	Feed _feed;                        ///< 拨盘对象
 };
 
-#pragma region InputOutput
-
-#pragma endregion InputOutput
-
 } // namespace breeze::shooter
+
+#include "shooter.cpp"

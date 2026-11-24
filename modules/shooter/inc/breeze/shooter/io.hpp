@@ -25,22 +25,22 @@ namespace breeze::shooter
  */
 struct FricFeedback
 {
-	float Speed{};             ///< 转速(rpm), 电机正转为正
-	float Torque{};            ///< 电机输出力矩(N·m), 电机正转为正
+	float Speed{};  ///< 转速(rpm), 电机正转为正
+	float Torque{}; ///< 电机输出力矩(N·m), 电机正转为正
 };
 
 /**
  * @brief 拨盘的设备反馈
  * @note 原样填写驱动返回的量, 不做方向换算:
  *       控制目标按 FeedConfig::Direction 换算到电机极性, 反馈直接参与 PID.
- *       两种弹位模式均使用累计位置; 单圈绝对反馈由驱动层展开, 保留标定零点, 不在唤醒时置零.
+ *       角度为拨盘轴单圈位置 [0, 360), 保留标定零点, 不在唤醒时置零.
  *
  */
 struct FeedFeedback
 {
-	float Speed{};             ///< 转速(rpm), 电机正转为正
-	float Angle{};             ///< 多圈累计位置(encoder), 电机正转方向递增
-	float Torque{};            ///< 电机输出力矩(N·m), 电机正转为正
+	float Speed{};  ///< 转速(rpm), 电机正转为正
+	float Angle{};  ///< 拨盘轴角度 [0, 360), 电机正转方向递增, 单位为度
+	float Torque{}; ///< 电机输出力矩(N·m), 电机正转为正
 };
 
 /**

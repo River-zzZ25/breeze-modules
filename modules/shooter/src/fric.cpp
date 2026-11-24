@@ -24,29 +24,37 @@ Fric::Fric(const FricConfig& config)
       _info{},
       _output(0.0f)
 {
-	assert(IsConfigValid());
+	assert(_config.Direction != MotorDirection::None);
+	assert(
+	    _config.Pid.InputDeadband >= 0.0f && _config.Pid.MaxOutput >= 0.0f && _config.Pid.MaxIntegral >= 0.0f &&
+	    _config.Pid.InputIntegralSeparation >= 0.0f
+	);
+	if (_config.StuckConfig.has_value())
+	{
+		assert(
+		    _config.StuckConfig->TorqueThreshold >= 0.0f && _config.StuckConfig->SpeedThreshold >= 0.0f &&
+		    _config.StuckConfig->ConfirmCycles >= 1
+		);
+	}
 }
 
-void Fric::Update(const FricCmd& command, const FricFeedback& feedback, float dtMs)
+void Fric::Update(ShootState shootState, const FricCmd& command, const FricFeedback& feedback, float dtMs)
 {
+	_info.Speed = feedback.Speed;
+	_info.Torque = feedback.Torque;
+
+	if (shootState == ShootState::Sleep)
+	{
+		Reset();
+		return;
+	}
+
 	if (command.Mode != _controlInfo.LastMode)
 	{
 		_controlInfo = {};
 		_controlInfo.LastMode = command.Mode;
 	}
 	_info.Mode = _controlInfo.Stuck ? FricState::Stuck : command.Mode;
-
-	_info.Speed = feedback.Speed;
-	_info.Torque = feedback.Torque;
-
-	if (dtMs <= 0.0f || command.TargetSpeed < 0.0f)
-	{
-		_controlInfo.SpeedPid = {};
-		_controlInfo.StallCycles = 0;
-		_info.Ready = false;
-		_output = 0.0f;
-		return;
-	}
 
 	StuckCheck(command);
 	ReadyCheck(command);
@@ -59,24 +67,6 @@ void Fric::Reset()
 	_info.Mode = FricState::Sleep;
 	_info.Ready = false;
 	_output = 0.0f;
-}
-
-bool Fric::IsConfigValid() const
-{
-	const auto& pid = _config.Pid;
-	if (PolarityCheck() == 0.0f || pid.InputDeadband < 0.0f || pid.MaxOutput < 0.0f || pid.MaxIntegral < 0.0f ||
-	    pid.InputIntegralSeparation < 0.0f)
-	{
-		return false;
-	}
-
-	if (!_config.StuckConfig.has_value())
-	{
-		return true;
-	}
-
-	const auto& stuckConfig = *_config.StuckConfig;
-	return stuckConfig.TorqueThreshold >= 0.0f && stuckConfig.SpeedThreshold >= 0.0f && stuckConfig.ConfirmCycles >= 1;
 }
 
 void Fric::StuckCheck(const FricCmd& command)
@@ -100,16 +90,12 @@ void Fric::StuckCheck(const FricCmd& command)
 		return;
 	}
 
-	if (_controlInfo.StallCycles < stuckConfig.ConfirmCycles)
-	{
-		++_controlInfo.StallCycles;
-	}
+	++_controlInfo.StallCycles;
 
 	if (_controlInfo.StallCycles >= stuckConfig.ConfirmCycles)
 	{
 		_controlInfo.Stuck = true;
 		_info.Mode = FricState::Stuck;
-		_info.Ready = false;
 	}
 }
 
@@ -124,7 +110,8 @@ void Fric::ReadyCheck(const FricCmd& command)
 
 	const float tolerance =
 	    std::max(_config.ReadyConfig.MinTolerance, _config.ReadyConfig.SpeedRatio * command.TargetSpeed);
-	_info.Ready = std::abs(command.TargetSpeed - std::abs(_info.Speed)) <= tolerance;
+	const float target = command.TargetSpeed * PolarityCheck();
+	_info.Ready = std::abs(target - _info.Speed) <= tolerance;
 }
 
 void Fric::UpdateOutput(const FricCmd& command, float dtMs)
@@ -150,16 +137,7 @@ void Fric::UpdateOutput(const FricCmd& command, float dtMs)
 
 float Fric::PolarityCheck() const
 {
-	switch (_config.Direction)
-	{
-	case MotorDirection::Forward:
-		return 1.0f;
-	case MotorDirection::Reverse:
-		return -1.0f;
-	case MotorDirection::None:
-	default:
-		return 0.0f;
-	}
+	return _config.Direction == MotorDirection::Reverse ? -1.0f : 1.0f;
 }
 
 } // namespace breeze::shooter

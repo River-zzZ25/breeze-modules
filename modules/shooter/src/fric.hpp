@@ -8,7 +8,6 @@
  * @note 只负责单个摩擦轮的控制周期:
  *       - 目标速度方向换算、速度 PID、Ready 判断; 反馈保留电机原始极性
  *       - 堵转检测与锁存, 反转与恢复由上层 Shooter 处理
- *       - 非正周期或负目标时清输出、取消 Ready、清 PID 历史与堵转累计
  *       命令与反馈只作为本周期输入, 不保存副本; 只有跨周期数据留在对象中.
  *       速度单位统一 rpm, 力矩单位统一 N·m.
  *
@@ -33,8 +32,8 @@ namespace breeze::shooter
  */
 struct FricCmd
 {
-	FricState Mode{FricState::Sleep}; ///< 工作模式
-	float TargetSpeed{};              ///< 目标转速大小(rpm), 不接受负值; 零值不判定 Ready
+	FricState Mode{FricState::Sleep}; ///< 工作模式; 整机 Sleep 优先
+	float TargetSpeed{};              ///< 目标转速大小(rpm), 调用方保证非负; 零值不判定 Ready
 };
 
 /**
@@ -66,11 +65,12 @@ public:
 	/**
 	 * @brief 控制周期更新
 	 *
+	 * @param shootState 整机状态; Sleep 时清零输出并重置控制数据
 	 * @param command 本周期命令
 	 * @param feedback 本周期驱动反馈, 极性为电机正转
-	 * @param dtMs 采样周期(ms), 须为有限值; 非正时按异常周期处理
+	 * @param dtMs 采样周期(ms), 由调用方保证大于零
 	 */
-	void Update(const FricCmd& command, const FricFeedback& feedback, float dtMs);
+	void Update(ShootState shootState, const FricCmd& command, const FricFeedback& feedback, float dtMs);
 
 	/**
 	 * @brief 清除堵转锁存与 PID 历史
@@ -109,19 +109,12 @@ private:
 		PidCalculate SpeedPid{};              ///< 速度环计算状态
 	};
 	/**
-	 * @brief 验证配置是否有效
-	 *
-	 * @return true
-	 * @return false
-	 */
-	bool IsConfigValid() const;
-	/**
 	 * @brief 堵转周期计数, 仅 Running 且目标为正时检测
 	 *
 	 */
 	void StuckCheck(const FricCmd& command);
 	/**
-	 * @brief 按转速幅值判定到速, 仅 Running 且目标为正、不低于 MinTarget
+	 * @brief 按电机方向下的目标与反馈判定到速, 仅 Running 且目标为正、不低于 MinTarget
 	 *
 	 */
 	void ReadyCheck(const FricCmd& command);
