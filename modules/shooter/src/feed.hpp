@@ -38,7 +38,7 @@ enum class FeedCommand : std::uint8_t
 struct FeedCmd
 {
 	FeedCommand Command{FeedCommand::Hold}; ///< 发射指令
-	float TargetSpeed{};                    ///< 连发目标速度(rpm), 拨弹方向为正
+	float TargetSpeed{};                    ///< 连发目标角速度(°/s), 拨弹方向为正
 };
 
 /**
@@ -95,6 +95,12 @@ public:
 	 */
 	[[nodiscard]] float GetOutput() const { return _output; }
 
+	/**
+	 * @brief 根据本周期角度判断位置目标是否到位, 调用方结合工作状态使用
+	 *
+	 */
+	[[nodiscard]] bool IsPositionReached(float angle) const;
+
 	Feed(const Feed&) = delete;
 	Feed(Feed&&) = delete;
 	Feed& operator=(const Feed&) = delete;
@@ -109,6 +115,21 @@ private:
 	};
 
 	/**
+	 * @brief 更新连续堵转计时
+	 *
+	 */
+	void UpdateStuckTimer(const FeedFeedback& feedback, float dtMs);
+	/**
+	 * @brief 检测指令边沿, 按当前状态设置目标并推进状态机
+	 *
+	 */
+	void UpdateState(const FeedCmd& command, const FeedFeedback& feedback, float dtMs);
+	/**
+	 * @brief 根据当前状态执行位置环、速度环并更新力矩输出
+	 *
+	 */
+	void UpdateOutput(const FeedCmd& command, const FeedFeedback& feedback, float dtMs);
+	/**
 	 * @brief 按应用层弹位表顺序选择目标, 输入输出均为输出轴原始角度 [0, 360)
 	 *
 	 * @param angle 角度
@@ -117,61 +138,27 @@ private:
 	 */
 	[[nodiscard]] float SelectAbsolutePosition(float angle, PositionSelection selection) const;
 	/**
+	 * @brief 从给定位置前进或后退一个弹位, selection 为 Next 或 Previous
+	 */
+	[[nodiscard]] float StepPosition(float angle, PositionSelection selection) const;
+	/**
+	 * @brief 连发停止后, 从反馈位置向前对齐第一个弹位
+	 */
+	[[nodiscard]] float ForwardAlignmentPosition(float angle) const;
+	/**
 	 * @brief 计算目标与当前反馈的有符号圆周误差, 恰好 180 度时按正拨或退弹方向取符号
 	 *
 	 */
 	[[nodiscard]] float CalculatePositionError(float angle) const;
 	/**
-	 * @brief 更新连续堵转计时
-	 *
-	 */
-	void StuckCheck(const FeedFeedback& feedback, float dtMs);
-	/**
-	 * @brief 检测指令边沿并调度状态处理
-	 *
-	 */
-	void UpdateState(const FeedCmd& command, const FeedFeedback& feedback, float dtMs);
-	/**
-	 * @brief 处理待命、连发及单发指令
-	 *
-	 */
-	[[nodiscard]] FeedState FeedRunning(
-	    const FeedCmd& command,
-	    const FeedFeedback& feedback,
-	    bool singleRequested,
-	    bool isStuck
-	);
-	/**
-	 * @brief 处理单发到位、超时及堵转
-	 *
-	 */
-	[[nodiscard]] FeedState FeedSingleShoot(const FeedFeedback& feedback, float dtMs, bool isStuck);
-	/**
-	 * @brief 处理堵转后的退弹和重载
-	 *
-	 */
-	[[nodiscard]] FeedState FeedRecovery(const FeedFeedback& feedback, float dtMs, bool isStuck);
-	/**
-	 * @brief 提交状态切换并清零 PID 历史与计时
-	 *
-	 */
-	void FeedChangeState(FeedState nextState);
-	/**
-	 * @brief 根据当前状态执行位置环、速度环并更新力矩输出
-	 *
-	 */
-	void UpdateOutput(const FeedCmd& command, const FeedFeedback& feedback, float dtMs);
-	/**
 	 * @brief 拨弹方向到电机方向的换算系数
 	 *
 	 */
-	[[nodiscard]] int PolarityCheck() const;
+	[[nodiscard]] int DirectionSign() const;
 
 	struct ControlInfo
 	{
 		FeedCommand LastCommand{FeedCommand::Hold}; ///< 上一周期指令, 用于单发边沿检测
-		PidCalculate PositionPid{};                 ///< 位置环计算状态
-		PidCalculate SpeedPid{};                    ///< 速度环计算状态
 		float StuckElapsedMs{};                     ///< 连续堵转时长
 		float RecoveryElapsedMs{};                  ///< 当前复位或清堵阶段已持续时间(ms)
 		float PositionOrigin{};                     ///< 复位基准角度 [0, 360), 电机原始极性
@@ -180,6 +167,9 @@ private:
 	};
 
 	FeedConfig _config;       ///< 拨盘配置
+	robotpilots::algorithm::Pid<float> _positionPid;
+	robotpilots::algorithm::Pid<float> _positionSpeedPid;
+	robotpilots::algorithm::Pid<float> _speedPid;
 	ControlInfo _controlInfo; ///< 跨周期状态
 	FeedInfo _info;           ///< 对外状态
 	float _output{};          ///< 本周期电机力矩指令(N·m)

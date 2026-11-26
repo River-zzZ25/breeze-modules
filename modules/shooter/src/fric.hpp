@@ -106,7 +106,6 @@ private:
 		FricState LastMode{FricState::Sleep}; ///< 上一周期命令模式
 		std::uint16_t StallCycles{};          ///< 连续满足堵转条件的控制周期数
 		bool Stuck{};                         ///< 堵转锁存
-		PidCalculate SpeedPid{};              ///< 速度环计算状态
 	};
 	/**
 	 * @brief 堵转周期计数, 仅 Running 且目标为正时检测
@@ -130,6 +129,7 @@ private:
 	float PolarityCheck() const;
 
 	FricConfig _config;       ///< 摩擦轮配置
+	robotpilots::algorithm::Pid<float> _speedPid;
 	ControlInfo _controlInfo; ///< 跨周期状态
 	FricInfo _info;           ///< 实际状态
 	float _output;            ///< 本周期力矩指令(N·m)

@@ -35,20 +35,19 @@ enum class MotorDirection : std::uint8_t
 };
 
 /**
- * @brief pid配置
- * @note 这是一个没有完善的结构体
+ * @brief PID 系数、输入死区、积分分离与限幅配置
  *
  */
 struct PidConfig
 {
-	float Kp; // 比例系数
-	float Ki; // 积分系数
-	float Kd; // 微分系数
+	float Kp; ///< 比例系数
+	float Ki; ///< 积分系数, 积分累计按秒计算
+	float Kd; ///< 微分系数, 误差变化率按秒计算
 
-	float InputDeadband;           // 输入死区
-	float MaxOutput;               // 最大输出幅值, 0 表示不限幅; Fric 为 N·m
-	float MaxIntegral;             // 误差积分累计量上限(误差·s), 非 Iout 上限; 0 表示不限幅
-	float InputIntegralSeparation; // 积分分离值
+	float InputDeadband;           ///< 误差幅值小于该值时按零处理
+	float MaxOutput;               ///< 输出幅值上限, 0 表示不限幅; 速度环为 N·m, 拨盘位置环为 °/s
+	float MaxIntegral;             ///< 误差积分累计量上限(误差·s), 非 Iout 上限; 0 表示不限幅
+	float InputIntegralSeparation; ///< 误差幅值超过该值时清零积分累计量; 0 表示关闭积分分离
 };
 
 /**
@@ -57,7 +56,7 @@ struct PidConfig
  */
 struct FricStuckConfig
 {
-	float TorqueThreshold{};       ///< 出弹方向力矩幅值阈值(N·m)
+	float TorqueThreshold{};       ///< 力矩幅值阈值(N·m), 比较绝对值, 不区分方向
 	float SpeedThreshold{};        ///< 转速幅值阈值(rpm)
 	std::uint16_t ConfirmCycles{}; ///< 连续满足条件的控制周期数; 必须不小于 1
 };
@@ -67,7 +66,7 @@ struct FricStuckConfig
  */
 struct FricReadyConfig
 {
-	float SpeedRatio{};   ///< 相对容差, 目标转速的百分比，输入0~1之间的数值，表示目标转速的百分比
+	float SpeedRatio{};   ///< 相对容差比例, 取值 0~1, 乘以目标转速得到容差(rpm)
 	float MinTolerance{}; ///< 绝对容差下限(rpm)
 	float MinTarget{};    ///< 判定下限(rpm), 目标低于该值时不判 Ready
 };
@@ -78,6 +77,8 @@ struct FricReadyConfig
  */
 struct FricConfig
 {
+	float InintialFricTargetSpeed{};              ///< 初始摩擦轮目标转速(rpm)
+	float LobInitialFricSpeed{};                  ///< 吊射初始摩擦轮转速(rpm)
 	MotorDirection Direction{};                   ///< 电机方向
 	PidConfig Pid{};                              ///< 电机pid配置
 	etl::optional<FricStuckConfig> StuckConfig{}; ///< 堵转配置
@@ -91,7 +92,7 @@ struct FricConfig
 struct FeedStuckConfig
 {
 	float TorqueThreshold{};   ///< 堵转判定力矩阈值(N·m)
-	float SpeedThreshold{};    ///< 堵转判定速度阈值(rpm)
+	float SpeedThreshold{};    ///< 堵转判定速度阈值(°/s)
 	std::uint16_t ConfirmMs{}; ///< 堵转确认持续时间(ms)
 };
 
@@ -101,7 +102,7 @@ struct FeedStuckConfig
  */
 struct FeedResetConfig
 {
-	float ResetSpeed{};           ///< 唤醒复位速度(rpm), 必须非零; 负值为退弹方向
+	float ResetSpeed{};           ///< 唤醒复位速度(°/s), 必须非零; 负值为退弹方向
 	std::uint16_t ResetTimeOut{}; ///< 复位超时时间(ms)
 };
 
@@ -147,9 +148,9 @@ struct FeedShootConfig
 struct FeedConfig
 {
 	MotorDirection Direction;                            ///< 拨盘电机安装方向
-	PidConfig PositionPid;                               ///< 位置环配置, 输出目标转速(rpm)
-	PidConfig PositionSpeedPid;                          ///< 速度环配置, 输出力矩(N·m)
-	PidConfig SpeedPid;                                  ///< 速度环配置, 输出力矩(N·m)
+	PidConfig PositionPid;                               ///< 位置环配置, 输入角度误差(°), 输出目标角速度(°/s)
+	PidConfig PositionSpeedPid;                          ///< 位置环的速度内环配置, 输出力矩(N·m)
+	PidConfig SpeedPid;                                  ///< 复位与连发使用的独立速度环配置, 输出力矩(N·m)
 	FeedStuckConfig Stuck;                               ///< 堵转配置
 	FeedPositionConfig Position{RelativeFeedPosition{}}; ///< 相对等距弹位或绝对单圈弹位表
 	FeedShootConfig Shoot;                               ///< 拨弹配置
@@ -158,35 +159,37 @@ struct FeedConfig
 /**
  * @brief 弹速自适应配置
  *
- * @note 该配置用于根据理想弹速和摩擦轮转速来调整射击参数。
- *		在没有设置其他属性时，默认使用初始摩擦轮目标转速进行射击。
+ * @note 用于后续按弹速反馈调整摩擦轮目标转速; 当前自适应控制逻辑尚未实现.
+ *       理想区间包含两端; 欠速低于 IdealSpeedMin; 偏高介于 IdealSpeedMax 与 OverSpeedThreshold 之间;
+ *       弹速达到 OverSpeedThreshold 时按超速处理; 任意非欠速样本清零连续欠速计数.
  */
 struct ShootSpeedAdaptConfig
 {
-	bool Enable{};                   ///< 是否启用弹速自适应
-	float InintialFricTargetSpeed{}; ///< 初始摩擦轮目标转速(rpm)
-	float LobInitialFricSpeed{};     ///< 吊射初始摩擦轮转速(rpm)
-	float IdealSpeedMin{};           ///< 理想弹速最小值(m/s)
-	float IdealSpeedMax{};           ///< 理想弹速最大值(m/s)
-	float FricSpeedMin{};            ///< 摩擦轮最小转速(rpm)
-	float FricSpeedMax{};            ///< 摩擦轮最大转速(rpm)
-	float OverSpeedAdjustment{};     ///< 超速时摩擦轮转速调整量
-	float LowSpeedAdjustment{};      ///< 欠速时摩擦轮转速调整量
-	uint16_t LowSpeedMaxCount{};     ///< 欠速最大计数，超过这个计数就认为是欠速
-	float HighSpeedAdjustment{};     ///< 高速时摩擦轮转速调整量
-	uint16_t HighSpeedMaxCount{};    ///< 高速最大计数，超过这个计数就认为是高速
+	bool Enable{};                    ///< 是否启用弹速自适应
+	float IdealSpeedMin{};            ///< 理想弹速下限(m/s), 包含边界
+	float IdealSpeedMax{};            ///< 理想弹速上限(m/s), 包含边界
+	float OverSpeedThreshold{};       ///< 超速阈值(m/s), 包含边界, 大于 IdealSpeedMax
+	float FricSpeedMin{};             ///< 摩擦轮最小转速(rpm)
+	float FricSpeedMax{};             ///< 摩擦轮最大转速(rpm)
+	float OverSpeedAdjustment{};      ///< 达到超速阈值时立即降低的转速(rpm)
+	float LowSpeedAdjustment{};       ///< 连续欠速达到配置次数后增加的转速(rpm)
+	std::uint16_t LowSpeedMaxCount{}; ///< 触发加速所需的连续欠速次数
+	float HighSpeedAdjustment{};      ///< 偏高档比例降速的最大调整量(rpm)
 };
 
 /**
  * @brief 热量限制配置
  *
  * @note 两项检测由对应标志启用; 未填写的数值默认为零.
+ *       热量阈值按 NoShootHeatValue、VeryLowHeatValue、LowHeatValue 从低到高配置.
+ *       等于阈值时归入较低档; 剩余热量不大于 NoShootHeatValue 时禁止开始拨弹.
+ *       连发停止时仍会向前对齐弹位, 停射阈值需预留该动作可能消耗的一发热量.
  */
 struct ShootHeatLimitConfig
 {
 	bool AllowShootCountEnable{};     ///< 是否启用剩余发弹量检测
 	bool HeatLimitEnable{};           ///< 是否启用热量限制
-	float FeedSpeedCoefficient{};     ///< 连发射频到拨盘转速的换算系数(rpm/Hz)
+	float FeedSpeedCoefficient{};     ///< 连发射频到拨盘角速度的换算系数((°/s)/Hz), 即每发转过的角度(°)
 	float HighHeatShootingFreq{};     ///< 剩余热量充足或未启用热量限制时的连发射频(Hz)
 	std::uint16_t LowHeatValue{};     ///< 剩余热量低档阈值
 	float LowHeatShootingFreq{};      ///< 剩余热量低档连发射频(Hz)

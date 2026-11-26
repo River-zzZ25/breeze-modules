@@ -1,10 +1,10 @@
 /**
  * @file shooter.hpp
  * @author haito-Xiao (2565975695@qq.com)
- * @brief
+ * @brief 发射控制接口、热量限制与弹速自适应数据定义
  * @version 0.1
  * @date 2026-11-02
- * @note 在Shooter中实现弹速只适应，热量限制等计算
+ * @note 实现应用层使能控制、唤醒准备、发射限制和整组摩擦轮清堵; 弹速自适应待实现.
  * @copyright Copyright (c)  2026 RobotPilots-SZU.
  * @license SPDX-License-Identifier: Apache-2.0
  *
@@ -32,13 +32,37 @@ constexpr std::uint8_t SPEED_STAT_COUNT = 50;
 constexpr std::uint16_t SPEED_COUNT_MAX = 10;
 
 /**
- * @brief
- * @note 用于存储发射使能信息。
+ * @brief 模块使能与原始发射意图
+ *
  */
 struct ShootEnableInfo
 {
 	breeze::models::FiringIntent Intent{breeze::models::FiringIntent::Idle}; ///< 原始发射意图
-	bool Enable{}; ///< 模块使能, 由 Module::SetEnabled 提供
+	bool Enable{};                                                           ///< 模块使能, 由 Module::In.Enable 提供
+};
+
+/**
+ * @brief 本周期发射意图、剩余资源与设备反馈, Update 不修改或保存其副本
+ *
+ */
+template <std::size_t FricCount>
+struct ShooterInput
+{
+	ShootEnableInfo EnableInfo{};                        ///< 应用层决定唤醒或休眠, Idle 只停止发射
+	std::uint16_t RemainingHeat{};                       ///< 应用层计算的剩余热量
+	std::uint16_t AllowShootCount{};                     ///< 剩余允许发弹量
+	FeedFeedback Feed{};                                 ///< 拨盘轴原始反馈
+	etl::array<FricFeedback, FricCount> FricFeedbacks{}; ///< 各摩擦轮原始反馈
+};
+
+/**
+ * @brief 本周期热量与弹量限制结果
+ *
+ */
+struct ShootHeatLimitResult
+{
+	bool AllowShoot{};   ///< 是否允许开始拨弹
+	float RepeatSpeed{}; ///< 连发目标角速度(°/s), 拨弹方向为正
 };
 
 /**
@@ -47,15 +71,15 @@ struct ShootEnableInfo
  */
 struct ShootSpeedStats
 {
-	etl::circular_buffer<float, SPEED_STAT_COUNT> SpeedBuf; // 弹速环形缓存
-	std::uint8_t HighSpeedCount;                            // 最近50发中弹速超过阈值的数量
-	float LatestSpeed;                                      // 最近一颗弹丸初速度
-	float StdDev;                                           // 标准差
-	float Average;                                          // 平均弹速
-	float Range;                                            // 极差(最大值-最小值)
-	float Variance;                                         // 方差
-	std::uint8_t AbnormalCount;                             // 异常(剔除)弹速计数
-	bool IsValid;                                           // 统计是否有效;
+	etl::circular_buffer<float, SPEED_STAT_COUNT> SpeedBuf; ///< 弹速样本(m/s)
+	std::uint8_t HighSpeedCount;                            ///< 统计窗口内超过弹速阈值的样本数
+	float LatestSpeed;                                      ///< 最新弹速(m/s)
+	float StdDev;                                           ///< 弹速标准差(m/s)
+	float Average;                                          ///< 平均弹速(m/s)
+	float Range;                                            ///< 弹速极差(m/s)
+	float Variance;                                         ///< 弹速方差((m/s)^2)
+	std::uint8_t AbnormalCount;                             ///< 被剔除的异常弹速样本数
+	bool IsValid;                                           ///< 统计结果是否有效
 };
 
 /**
@@ -68,34 +92,35 @@ struct ShootSpeedAdaptInfo
 	etl::circular_buffer<float, SPEED_COUNT_MAX> RecentShootSpeeds; ///< 最近发射的弹速
 	std::uint16_t LowSpeedCount;                                    ///< 欠速计数
 	std::uint16_t HighSpeedCount;                                   ///< 高速计数
-	float CurrentShootSpeed;                                        ///< 当前发射的弹速
-	float CurrentOverSpeed;                                         ///< 当前超理想上限速度差
-	float FricLatestSpeed;      ///< 上一发摩擦轮转速(rpm),可以在算出FricTargetSpeed后，直接赋值给这个变量；
-	float CurrentDivide;        ///< 高速减速计算分母
-	std::uint16_t AddFricSpeed; ///< 当前摩擦轮转速增加量
-	std::uint16_t DecFricSpeed; ///< 当前摩擦轮转速减少量
+	float CurrentShootSpeed;                                        ///< 当前弹速(m/s)
+	float CurrentOverSpeed;                                         ///< 当前弹速超过理想上限的差值(m/s)
+	float FricLatestSpeed;                                          ///< 上一发对应的摩擦轮目标转速(rpm)
+	float CurrentDivide;                                            ///< 高速减速计算分母
+	std::uint16_t AddFricSpeed;                                     ///< 当前摩擦轮目标转速增加量(rpm)
+	std::uint16_t DecFricSpeed;                                     ///< 当前摩擦轮目标转速减少量(rpm)
 
 	float CurrentFricTargetSpeed; ///< 当前摩擦轮目标转速(rpm)
 };
 
 /**
- * @brief 发射模块配置
+ * @brief 发射模块跨周期控制状态
  *
- * @tparam FricCount
  */
 struct ShooterControlInfo
 {
-	ShootEnableInfo EnableInfo{};                        ///< 发射使能信息
-	ShootState State{ShootState::Sleep};                 ///< 发射模块状态
-	etl::optional<ShootSpeedAdaptInfo> SpeedAdaptInfo{}; ///< 弹速自适应信息
-	etl::optional<ShootSpeedStats> SpeedStats{};         ///< 弹速统计信息
+	breeze::models::FiringIntent LastIntent{breeze::models::FiringIntent::Idle}; ///< 上一周期原始发射意图
+	ShootState State{ShootState::Sleep};                                         ///< 发射模块状态
+	bool FricReversing{};                                                        ///< 整组摩擦轮是否正在反转清堵
+	float FricReverseElapsedMs{};                                                ///< 本次摩擦轮反转已持续时间(ms)
+	etl::optional<ShootSpeedAdaptInfo> SpeedAdaptInfo{};                         ///< 弹速自适应信息
+	etl::optional<ShootSpeedStats> SpeedStats{};                                 ///< 弹速统计信息
 };
 
 /**
- * @brief 发射类
- * @note
- * shooter只对摩擦轮和拨盘进行抽象。在接收到数据后，shooter会根据开火意图和上一发弹速来更新摩擦轮和拨盘的控制参数。
- *       弹速自适应，在接收到上一次数据后
+ * @brief 集成摩擦轮与拨盘的发射控制器
+ * @note 根据应用层使能管理唤醒准备、单发与连发及整组摩擦轮清堵.
+ *       弹速自适应接口待实现; 正常摩擦轮目标使用各轮 FricConfig::InintialFricTargetSpeed 配置.
+ * @tparam FricCount 摩擦轮数量
  */
 template <std::size_t FricCount>
 class Shooter
@@ -110,11 +135,25 @@ public:
 	explicit Shooter(const ShooterConfig<FricCount>& conf);
 
 	/**
-	 * @brief 启动 Shooter 功能入口, 当前执行一次 Update(1ms)
+	 * @brief 复位控制状态和输出, 进入 Sleep
 	 *
-	 * @note 不创建线程或周期调度; 后续功能在此补充, 模块使能仍由 Module 接口负责.
+	 * @note 当前直接调用 Reset; 后续由调用方周期调用 Update 并传入使能状态.
+	 *       本函数不创建线程或周期调度.
 	 */
 	void Start();
+
+	/**
+	 * @brief 更新整机生命周期、摩擦轮与拨盘控制
+	 *
+	 * @param input 本周期完整输入
+	 * @param dtMs 控制周期(ms)
+	 * @note Enable 为 true 时唤醒机构, 准备完成后才开始拨弹; Idle 只停止发射, 不休眠.
+	 *       进入 Init 及 Init 期间的单发只用于准备, 不缓存; 完成后需新的单发边沿才能发射.
+	 *       忙碌期间的新单发不排队, 被拒绝后不补发; 连发准备完成后按持续意图执行.
+	 *       资源不足或摩擦轮清堵时下发 Hold; 已开始的拨盘动作继续完成.
+	 *       休眠时机由应用层决定, Enable 为 false 时立即复位卸力.
+	 */
+	void Update(const ShooterInput<FricCount>& input, float dtMs);
 
 	/**
 	 * @brief 接收单个新弹速样本(m/s); 当前仅声明
@@ -141,23 +180,6 @@ public:
 	[[nodiscard]] ShootState GetState() const { return _controlInfo.State; }
 
 	/**
-	 * @brief 更新整组摩擦轮
-	 * @param commands 各摩擦轮本周期命令
-	 * @param feedbacks 各摩擦轮本周期反馈
-	 * @param dtMs 控制周期(ms)
-	 *
-	 * @note 本接口当前仅声明. 后续实现约定: 任一摩擦轮上报 Stuck 后,
-	 *       整组以 FricReverseSpeed 反转 500ms;
-	 *       到时恢复用户 Running 目标并清零堵转计数, 仍满足条件时再次进入清堵.
-	 *       反转期间不检测堵转, 停止类命令优先并立即中止清堵.
-	 */
-	void UpdateFric(
-	    const etl::array<FricCmd, FricCount>& commands,
-	    const etl::array<FricFeedback, FricCount>& feedbacks,
-	    float dtMs
-	);
-
-	/**
 	 * @brief 读取指定摩擦轮状态
 	 * @param index 摩擦轮索引, 调用方保证 index < FricCount
 	 */
@@ -171,7 +193,7 @@ public:
 	[[nodiscard]] float GetFricOutput(std::size_t index) const;
 
 	/**
-	 * @brief 发射模块重置函数
+	 * @brief 清除整机控制状态及 Fric/Feed 的 PID、堵转历史和输出, 进入 Sleep
 	 *
 	 */
 	void Reset();
@@ -190,28 +212,26 @@ private:
 	Shooter(const ShooterConfig<FricCount>& conf, std::index_sequence<Indices...>);
 
 	/**
-	 * @brief 控制周期更新入口, 由 Start 调用; 控制业务待补充
+	 * @brief 等待摩擦轮与拨盘准备完成, 随后根据拨盘状态更新发射状态
 	 *
 	 */
-	void Update(float dtMs);
+	void UpdateState(bool fricReady, float feedAngle);
 
 	/**
-	 * @brief 更新整机状态机; 当前仅声明
+	 * @brief 更新整组摩擦轮, 任一轮堵转后以配置速度反转 500ms, 随后恢复并重新检测
 	 *
+	 * @note 反转期间不检测堵转; 进入 Sleep 或失能时中止清堵.
 	 */
-	void UpdateState();
+	void UpdateFric(const etl::array<FricFeedback, FricCount>& feedbacks, float dtMs);
 
 	/**
-	 * @brief 根据热量和弹量限制发射; 当前仅声明
+	 * @brief 根据剩余热量和弹量计算本周期允许状态及连发速度
 	 *
 	 */
-	void UpdateHeatLimit(std::uint16_t heatValue, std::uint16_t allowShootCount);
-
-	/**
-	 * @brief 更新拨盘控制; 当前仅声明
-	 *
-	 */
-	void UpdateFeed(const FeedCmd& command, const FeedFeedback& feedback, float dtMs);
+	[[nodiscard]] ShootHeatLimitResult UpdateHeatLimit(
+	    std::uint16_t remainingHeat,
+	    std::uint16_t allowShootCount
+	) const;
 
 	ShooterConfig<FricCount> _conf;
 	ShooterControlInfo _controlInfo{};
@@ -221,5 +241,3 @@ private:
 };
 
 } // namespace breeze::shooter
-
-#include "shooter.cpp"

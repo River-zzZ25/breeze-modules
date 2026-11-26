@@ -1,7 +1,7 @@
 /**
  * @file state.hpp
  * @author haito-Xiao (2565975695@qq.com)
- * @brief
+ * @brief 摩擦轮、拨盘与发射控制器的内部工作状态
  * @version 0.1
  * @date 2026-11-14
  *
@@ -31,16 +31,16 @@ enum class FricState : std::uint8_t
 };
 
 /**
- * @brief 拨盘堵转状态枚举
+ * @brief 拨盘工作状态枚举
  *
  */
 enum class FeedState : std::uint8_t
 {
 	Sleep,       ///< 休眠(泄力)
-	Running,     ///< 正常
+	Running,     ///< 位置环待命
 	Stuck,       ///< 堵转
 	Reverse,     ///< 反转
-	Reload,      ///< 复位重载
+	Reload,      ///< 退弹后正向重载
 	Init,        ///< 唤醒后速度环复位
 	SingleShoot, ///< 位置环单发
 	RepeatShoot  ///< 速度环连发
@@ -52,13 +52,12 @@ enum class FeedState : std::uint8_t
  */
 enum class ShootState : std::uint8_t
 {
-	Sleep,           ///< 睡眠状态：摩擦轮拨盘卸力
-	Init,            ///< 初始化状态：拨盘速度环反转复位后进角度环；
-	Waiting,         ///< 等待就绪状态：拨盘角度环，摩擦轮开转
-	SingleShoot,     ///< 单发发射状态：拨盘角度换，执行单次拨弹
-	RepeatShoot,     ///< 连发发射状态：拨盘速度环，执行连续拨弹
-	HandleFricStuck, ///< 摩擦轮堵转处理状态：摩擦轮反转防堵,处理摩擦轮的异常堵转;
-	Fault            ///< 故障状态：摩擦轮或拨盘异常堵转，无法恢复
+	Sleep,       ///< 睡眠状态：摩擦轮拨盘卸力
+	Init,        ///< 摩擦轮加速, 拨盘复位或对齐, 完成后允许拨弹
+	Waiting,     ///< 拨盘待命或清堵, 是否休眠由应用层使能决定
+	SingleShoot, ///< 拨盘位置环执行单次拨弹
+	RepeatShoot, ///< 连发发射状态：拨盘速度环，执行连续拨弹
+	Fault        ///< 预留的整机故障状态, 当前未接入故障判定
 };
 
 } // namespace breeze::shooter

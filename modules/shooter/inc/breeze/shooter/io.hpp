@@ -31,14 +31,15 @@ struct FricFeedback
 
 /**
  * @brief 拨盘的设备反馈
- * @note 原样填写驱动返回的量, 不做方向换算:
- *       控制目标按 FeedConfig::Direction 换算到电机极性, 反馈直接参与 PID.
+ * @note 应用层将驱动速度转换为输出轴角速度(°/s), 保留电机原始极性:
+ *       速度目标和相对位移按 FeedConfig::Direction 换算, 反馈直接参与 PID.
+ *       绝对弹位表与反馈使用同一输出轴坐标, 表内目标角度不做极性转换.
  *       角度为拨盘轴单圈位置 [0, 360), 保留标定零点, 不在唤醒时置零.
  *
  */
 struct FeedFeedback
 {
-	float Speed{};  ///< 转速(rpm), 电机正转为正
+	float Speed{};  ///< 输出轴角速度(°/s), 电机正转为正
 	float Angle{};  ///< 拨盘轴角度 [0, 360), 电机正转方向递增, 单位为度
 	float Torque{}; ///< 电机输出力矩(N·m), 电机正转为正
 };

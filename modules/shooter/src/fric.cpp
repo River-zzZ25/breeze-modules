@@ -20,6 +20,7 @@ namespace breeze::shooter
 {
 Fric::Fric(const FricConfig& config)
     : _config(config),
+      _speedPid(MakePid(config.Pid)),
       _controlInfo{},
       _info{},
       _output(0.0f)
@@ -51,6 +52,7 @@ void Fric::Update(ShootState shootState, const FricCmd& command, const FricFeedb
 
 	if (command.Mode != _controlInfo.LastMode)
 	{
+		_speedPid.Reset();
 		_controlInfo = {};
 		_controlInfo.LastMode = command.Mode;
 	}
@@ -63,6 +65,7 @@ void Fric::Update(ShootState shootState, const FricCmd& command, const FricFeedb
 
 void Fric::Reset()
 {
+	_speedPid.Reset();
 	_controlInfo = {};
 	_info.Mode = FricState::Sleep;
 	_info.Ready = false;
@@ -132,7 +135,7 @@ void Fric::UpdateOutput(const FricCmd& command, float dtMs)
 		return;
 	}
 
-	_output = UpdatePid(_config.Pid, target - _info.Speed, dtMs, _controlInfo.SpeedPid);
+	_output = UpdatePid(_config.Pid, target - _info.Speed, dtMs, _speedPid);
 }
 
 float Fric::PolarityCheck() const
