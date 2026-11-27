@@ -26,7 +26,6 @@ enum class FricState : std::uint8_t
 	Sleep,   ///< 休眠(泄力)
 	Stop,    ///< 停止(控速0)
 	Running, ///< 正常运行
-	Stuck,   ///< 堵转
 	Reverse, ///< 反转
 };
 
@@ -52,12 +51,9 @@ enum class FeedState : std::uint8_t
  */
 enum class ShootState : std::uint8_t
 {
-	Sleep,       ///< 睡眠状态：摩擦轮拨盘卸力
-	Init,        ///< 摩擦轮加速, 拨盘复位或对齐, 完成后允许拨弹
-	Waiting,     ///< 拨盘待命或清堵, 是否休眠由应用层使能决定
-	SingleShoot, ///< 拨盘位置环执行单次拨弹
-	RepeatShoot, ///< 连发发射状态：拨盘速度环，执行连续拨弹
-	Fault        ///< 预留的整机故障状态, 当前未接入故障判定
+	Sleep,  ///< 摩擦轮与拨盘卸力
+	Init,   ///< 摩擦轮加速, 拨盘复位或对齐
+	Running ///< 准备完成, 按应用层命令控制拨弹
 };
 
 } // namespace breeze::shooter

@@ -33,7 +33,6 @@ Feed::Feed(const FeedConfig& config)
       _speedPid(MakePid(config.SpeedPid))
 {
 	assert(_config.Direction != MotorDirection::None);
-	assert(_config.Stuck.ConfirmMs > 0);
 #ifndef NDEBUG
 	if (const auto* relative = etl::get_if<RelativeFeedPosition>(&_config.Position))
 	{
@@ -53,7 +52,10 @@ Feed::Feed(const FeedConfig& config)
 #endif
 	assert(_config.Shoot.ShootTimeOut > 0);
 	assert(_config.Shoot.PositionTolerance >= 0);
-	assert(_config.Shoot.HandleStuckReverseTimeout > 0 && _config.Shoot.HandleStuckReloadTimeout > 0);
+	assert(
+	    _config.Shoot.HandleStuckReverseTimeout > 0 && _config.Shoot.HandleStuckReloadTimeout > 0 &&
+	    _config.Shoot.RetryMaxCount > 0
+	);
 }
 
 void Feed::Update(ShootState shootState, const FeedCmd& command, const FeedFeedback& feedback, float dtMs)
@@ -64,34 +66,8 @@ void Feed::Update(ShootState shootState, const FeedCmd& command, const FeedFeedb
 		return;
 	}
 
-	UpdateStuckTimer(feedback, dtMs);
 	UpdateState(command, feedback, dtMs);
 	UpdateOutput(command, feedback, dtMs);
-}
-
-void Feed::UpdateStuckTimer(const FeedFeedback& feedback, float dtMs)
-{
-	if (_info.State == FeedState::Sleep || _info.State == FeedState::Stuck || _info.State == FeedState::Reverse)
-	{
-		_controlInfo.StuckElapsedMs = 0.0f;
-		return;
-	}
-
-	float torqueDirection = DirectionSign();
-	if (_info.State == FeedState::Init && etl::get<RelativeFeedPosition>(_config.Position).Reset.ResetSpeed < 0.0f)
-	{
-		torqueDirection = -torqueDirection;
-	}
-
-	const auto& stuck = _config.Stuck;
-	if (std::abs(feedback.Speed) < stuck.SpeedThreshold && feedback.Torque * torqueDirection > stuck.TorqueThreshold)
-	{
-		_controlInfo.StuckElapsedMs += dtMs;
-	}
-	else
-	{
-		_controlInfo.StuckElapsedMs = 0.0f;
-	}
 }
 
 void Feed::UpdateState(const FeedCmd& command, const FeedFeedback& feedback, float dtMs)
@@ -100,8 +76,16 @@ void Feed::UpdateState(const FeedCmd& command, const FeedFeedback& feedback, flo
 	    command.Command == FeedCommand::Single && _controlInfo.LastCommand != FeedCommand::Single;
 	// 每周期消费边沿, 非待命状态收到的单发不缓存。
 	_controlInfo.LastCommand = command.Command;
-	const bool isStuck = _controlInfo.StuckElapsedMs >= _config.Stuck.ConfirmMs;
 	const auto& shoot = _config.Shoot;
+	// 达到上限后保持目标位置, 等设备层解除堵转再接收拨弹请求。
+	if (_controlInfo.RetryCount >= shoot.RetryMaxCount)
+	{
+		if (feedback.Stuck)
+		{
+			return;
+		}
+		_controlInfo.RetryCount = 0;
+	}
 	auto nextState = _info.State;
 
 	switch (_info.State)
@@ -120,7 +104,7 @@ void Feed::UpdateState(const FeedCmd& command, const FeedFeedback& feedback, flo
 
 	case FeedState::Init:
 		_controlInfo.RecoveryElapsedMs += dtMs;
-		if (isStuck ||
+		if (feedback.Stuck ||
 		    _controlInfo.RecoveryElapsedMs >= etl::get<RelativeFeedPosition>(_config.Position).Reset.ResetTimeOut)
 		{
 			_controlInfo.PositionOrigin = feedback.Angle;
@@ -130,7 +114,7 @@ void Feed::UpdateState(const FeedCmd& command, const FeedFeedback& feedback, flo
 		break;
 
 	case FeedState::Running:
-		if (isStuck)
+		if (feedback.Stuck)
 		{
 			nextState = FeedState::Stuck;
 		}
@@ -148,7 +132,7 @@ void Feed::UpdateState(const FeedCmd& command, const FeedFeedback& feedback, flo
 	case FeedState::SingleShoot:
 		// 已开始的单发继续完成, 不被 Hold 或 Repeat 中断。
 		_controlInfo.ShootElapsedMs += dtMs;
-		if (isStuck)
+		if (feedback.Stuck)
 		{
 			nextState = FeedState::Stuck;
 		}
@@ -164,7 +148,7 @@ void Feed::UpdateState(const FeedCmd& command, const FeedFeedback& feedback, flo
 		break;
 
 	case FeedState::RepeatShoot:
-		if (isStuck)
+		if (feedback.Stuck)
 		{
 			nextState = FeedState::Stuck;
 		}
@@ -193,16 +177,27 @@ void Feed::UpdateState(const FeedCmd& command, const FeedFeedback& feedback, flo
 
 	case FeedState::Reload:
 		_controlInfo.RecoveryElapsedMs += dtMs;
-		if (isStuck)
+		if (feedback.Stuck)
 		{
-			nextState = FeedState::Stuck;
+			++_controlInfo.RetryCount;
+			if (_controlInfo.RetryCount >= shoot.RetryMaxCount)
+			{
+				_controlInfo.TargetPosition = feedback.Angle;
+				nextState = FeedState::Running;
+			}
+			else
+			{
+				nextState = FeedState::Stuck;
+			}
 		}
 		else if (IsPositionReached(feedback.Angle))
 		{
+			_controlInfo.RetryCount = 0;
 			nextState = FeedState::Running;
 		}
 		else if (_controlInfo.RecoveryElapsedMs >= shoot.HandleStuckReloadTimeout)
 		{
+			_controlInfo.RetryCount = 0;
 			_controlInfo.TargetPosition = feedback.Angle;
 			nextState = FeedState::Running;
 		}
@@ -218,7 +213,6 @@ void Feed::UpdateState(const FeedCmd& command, const FeedFeedback& feedback, flo
 	_positionPid.Reset();
 	_positionSpeedPid.Reset();
 	_speedPid.Reset();
-	_controlInfo.StuckElapsedMs = 0.0f;
 	_controlInfo.RecoveryElapsedMs = 0.0f;
 	_controlInfo.ShootElapsedMs = 0.0f;
 	_info.State = nextState;

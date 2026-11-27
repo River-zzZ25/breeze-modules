@@ -70,8 +70,10 @@ public:
 	 * @param command 本周期命令
 	 * @param feedback 本周期拨盘轴反馈, 角度为 [0, 360), 保留电机原始极性
 	 * @param dtMs 控制周期(ms)
-	 * @note 堵转后自动执行角度环退弹、重载, 完成后使用最新命令.
-	 *       退弹到位或超时后重载; 重载到位后保持重载目标, 超时保持当前位置, 再次堵转则重新清堵.
+	 * @note 堵转状态由设备层通过 feedback.Stuck 提供并解除, 本类不检测或锁存堵转.
+	 *       堵转后自动执行角度环退弹、重载, 完成后使用最新命令.
+	 *       退弹到位或超时后重载; 重载到位后保持重载目标, 超时保持当前位置并清零重试计数.
+	 *       重载再次堵转时累计次数; 达到 RetryMaxCount 后保持本次堵转位置, 等设备层解除 Stuck 后重新接收命令.
 	 *       ShootState::Sleep 立即中止; 相对模式每次唤醒按 Position 中的 Reset 配置复位, 堵转或超时后结束.
 	 *       复位后位置环保持并建立弹位基准; 连发结束后对齐拨弹方向的前方第一个弹位.
 	 *       绝对模式不机械复位, 唤醒对齐最近弹位; 单发及清堵按表选择前后弹位, 支持跨圈.
@@ -115,11 +117,6 @@ private:
 	};
 
 	/**
-	 * @brief 更新连续堵转计时
-	 *
-	 */
-	void UpdateStuckTimer(const FeedFeedback& feedback, float dtMs);
-	/**
 	 * @brief 检测指令边沿, 按当前状态设置目标并推进状态机
 	 *
 	 */
@@ -159,11 +156,11 @@ private:
 	struct ControlInfo
 	{
 		FeedCommand LastCommand{FeedCommand::Hold}; ///< 上一周期指令, 用于单发边沿检测
-		float StuckElapsedMs{};                     ///< 连续堵转时长
 		float RecoveryElapsedMs{};                  ///< 当前复位或清堵阶段已持续时间(ms)
 		float PositionOrigin{};                     ///< 复位基准角度 [0, 360), 电机原始极性
 		float TargetPosition{};                     ///< 正常拨弹或清堵的当前目标 [0, 360), 电机原始极性
 		float ShootElapsedMs{};                     ///< 单发已持续时间(ms)
+		std::uint8_t RetryCount{};                  ///< 本轮清堵中重载再次堵转的次数
 	};
 
 	FeedConfig _config;       ///< 拨盘配置

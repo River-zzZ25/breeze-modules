@@ -7,7 +7,7 @@
  *
  * @note 只负责单个摩擦轮的控制周期:
  *       - 目标速度方向换算、速度 PID、Ready 判断; 反馈保留电机原始极性
- *       - 堵转检测与锁存, 反转与恢复由上层 Shooter 处理
+ *       - 按上层 Shooter 的命令运行或反转, 不判断和锁存堵转状态
  *       命令与反馈只作为本周期输入, 不保存副本; 只有跨周期数据留在对象中.
  *       速度单位统一 rpm, 力矩单位统一 N·m.
  *
@@ -44,7 +44,6 @@ struct FricInfo
 {
 	FricState Mode{FricState::Sleep}; ///< 控制模式
 	float Speed{};                    ///< 实际转速(rpm), 电机正转为正
-	float Torque{};                   ///< 力矩(N·m), 电机正转为正
 	bool Ready{};                     ///< 达到目标转速
 };
 
@@ -73,7 +72,7 @@ public:
 	void Update(ShootState shootState, const FricCmd& command, const FricFeedback& feedback, float dtMs);
 
 	/**
-	 * @brief 清除堵转锁存与 PID 历史
+	 * @brief 清除 PID 历史与输出, 进入 Sleep
 	 *
 	 */
 	void Reset();
@@ -98,21 +97,6 @@ public:
 
 private:
 	/**
-	 * @brief 摩擦轮跨周期状态
-	 *
-	 */
-	struct ControlInfo
-	{
-		FricState LastMode{FricState::Sleep}; ///< 上一周期命令模式
-		std::uint16_t StallCycles{};          ///< 连续满足堵转条件的控制周期数
-		bool Stuck{};                         ///< 堵转锁存
-	};
-	/**
-	 * @brief 堵转周期计数, 仅 Running 且目标为正时检测
-	 *
-	 */
-	void StuckCheck(const FricCmd& command);
-	/**
 	 * @brief 按电机方向下的目标与反馈判定到速, 仅 Running 且目标为正、不低于 MinTarget
 	 *
 	 */
@@ -130,7 +114,6 @@ private:
 
 	FricConfig _config;       ///< 摩擦轮配置
 	robotpilots::algorithm::Pid<float> _speedPid;
-	ControlInfo _controlInfo; ///< 跨周期状态
 	FricInfo _info;           ///< 实际状态
 	float _output;            ///< 本周期力矩指令(N·m)
 };

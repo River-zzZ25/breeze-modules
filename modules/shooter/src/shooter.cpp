@@ -1,7 +1,7 @@
 /**
  * @file shooter.cpp
  * @author haito-Xiao (2565975695@qq.com)
- * @brief Shooter 生命周期、热量限制与摩擦轮清堵协调实现
+ * @brief Shooter 唤醒准备、命令执行与摩擦轮清堵协调实现
  * @version 0.1
  * @date 2026-11-17
  *
@@ -9,8 +9,6 @@
  * @license SPDX-License-Identifier: Apache-2.0
  *
  */
-
-#pragma once
 
 #include "shooter.hpp"
 
@@ -26,7 +24,7 @@ Shooter<FricCount>::Shooter(const ShooterConfig<FricCount>& conf)
 template <std::size_t FricCount>
 template <std::size_t... Indices>
 Shooter<FricCount>::Shooter(const ShooterConfig<FricCount>& conf, std::index_sequence<Indices...>)
-    : _conf(conf),
+    : _fricReverseSpeed(conf.FricReverseSpeed),
       _fric{{Fric(conf.FricConf[Indices])...}},
       _feed(conf.FeedConf)
 {}
@@ -40,100 +38,49 @@ void Shooter<FricCount>::Start()
 template <std::size_t FricCount>
 void Shooter<FricCount>::Update(const ShooterInput<FricCount>& input, float dtMs)
 {
-	const auto intent = input.EnableInfo.Intent;
-	const bool singleRequested =
-	    intent == breeze::models::FiringIntent::Once && _controlInfo.LastIntent != breeze::models::FiringIntent::Once;
-	if (!input.EnableInfo.Enable)
+	if (input.Command == ShooterCommand::Sleep)
 	{
 		Reset();
-		_controlInfo.LastIntent = intent;
 		return;
 	}
-	_controlInfo.LastIntent = intent;
-	const auto limit = UpdateHeatLimit(input.RemainingHeat, input.AllowShootCount);
-	const bool repeatRequested =
-	    intent == breeze::models::FiringIntent::Continuosly && limit.AllowShoot && limit.RepeatSpeed > 0.0f;
+	const bool singleRequested =
+	    input.Command == ShooterCommand::Once && _controlInfo.LastCommand != ShooterCommand::Once;
+	_controlInfo.LastCommand = input.Command;
 	if (_controlInfo.State == ShootState::Sleep)
 	{
 		_controlInfo.State = ShootState::Init;
 	}
 
-	UpdateFric(input.FricFeedbacks, dtMs);
+	UpdateFric(input.FricFeedbacks, input.FricTargetSpeeds, dtMs);
 	const bool fricReady =
 	    std::all_of(_fric.begin(), _fric.end(), [](const Fric& fric) { return fric.GetStatus().Ready; });
 	FeedCmd command{};
-	if (_controlInfo.State != ShootState::Init)
+	if (_controlInfo.State == ShootState::Running && fricReady)
 	{
-		if (limit.AllowShoot && fricReady && singleRequested && _feed.GetStatus().State == FeedState::Running)
+		if (singleRequested && _feed.GetStatus().State == FeedState::Running)
 		{
 			command.Command = FeedCommand::Single;
 		}
-		else if (fricReady && repeatRequested)
+		else if (input.Command == ShooterCommand::Repeat && input.FeedTargetSpeed > 0.0f)
 		{
 			command.Command = FeedCommand::Repeat;
-			command.TargetSpeed = limit.RepeatSpeed;
+			command.TargetSpeed = input.FeedTargetSpeed;
 		}
 	}
 	_feed.Update(_controlInfo.State, command, input.Feed, dtMs);
-	UpdateState(fricReady, input.Feed.Angle);
-}
-
-template <std::size_t FricCount>
-ShootHeatLimitResult Shooter<FricCount>::UpdateHeatLimit(
-    std::uint16_t remainingHeat,
-    std::uint16_t allowShootCount
-) const
-{
-	const auto& config = _conf.HeatLimitConf;
-	if ((config.AllowShootCountEnable && allowShootCount == 0) ||
-	    (config.HeatLimitEnable && remainingHeat <= config.NoShootHeatValue))
+	if (_controlInfo.State == ShootState::Init && fricReady && _feed.GetStatus().State == FeedState::Running &&
+	    _feed.IsPositionReached(input.Feed.Angle))
 	{
-		return {};
-	}
-
-	float frequency = config.HighHeatShootingFreq;
-	if (config.HeatLimitEnable)
-	{
-		if (remainingHeat <= config.VeryLowHeatValue)
-		{
-			frequency = config.VeryLowHeatShootingFreq;
-		}
-		else if (remainingHeat <= config.LowHeatValue)
-		{
-			frequency = config.LowHeatShootingFreq;
-		}
-	}
-	return {true, frequency * config.FeedSpeedCoefficient};
-}
-
-template <std::size_t FricCount>
-void Shooter<FricCount>::UpdateState(bool fricReady, float feedAngle)
-{
-	if (_controlInfo.State == ShootState::Init)
-	{
-		if (fricReady && _feed.GetStatus().State == FeedState::Running && _feed.IsPositionReached(feedAngle))
-		{
-			_controlInfo.State = ShootState::Waiting;
-		}
-		return;
-	}
-
-	switch (_feed.GetStatus().State)
-	{
-	case FeedState::SingleShoot:
-		_controlInfo.State = ShootState::SingleShoot;
-		break;
-	case FeedState::RepeatShoot:
-		_controlInfo.State = ShootState::RepeatShoot;
-		break;
-	default:
-		_controlInfo.State = ShootState::Waiting;
-		break;
+		_controlInfo.State = ShootState::Running;
 	}
 }
 
 template <std::size_t FricCount>
-void Shooter<FricCount>::UpdateFric(const etl::array<FricFeedback, FricCount>& feedbacks, float dtMs)
+void Shooter<FricCount>::UpdateFric(
+    const etl::array<FricFeedback, FricCount>& feedbacks,
+    const etl::array<float, FricCount>& targetSpeeds,
+    float dtMs
+)
 {
 	if (_controlInfo.FricReversing)
 	{
@@ -144,26 +91,20 @@ void Shooter<FricCount>::UpdateFric(const etl::array<FricFeedback, FricCount>& f
 			_controlInfo.FricReverseElapsedMs = 0.0f;
 		}
 	}
-	for (std::size_t i = 0; i < FricCount; ++i)
-	{
-		const FricCmd command{
-		    .Mode = _controlInfo.FricReversing ? FricState::Reverse : FricState::Running,
-		    .TargetSpeed = _controlInfo.FricReversing ? _conf.FricReverseSpeed
-		                                           : _conf.FricConf[i].InintialFricTargetSpeed
-		};
-		_fric[i].Update(_controlInfo.State, command, feedbacks[i], dtMs);
-	}
-	if (!_controlInfo.FricReversing && std::any_of(_fric.begin(), _fric.end(), [](const Fric& fric) {
-		    return fric.GetStatus().Mode == FricState::Stuck;
+	if (!_controlInfo.FricReversing && std::any_of(feedbacks.begin(), feedbacks.end(), [](const FricFeedback& feedback) {
+		    return feedback.Stuck;
 	    }))
 	{
 		_controlInfo.FricReversing = true;
 		_controlInfo.FricReverseElapsedMs = 0.0f;
-		const FricCmd reverse{.Mode = FricState::Reverse, .TargetSpeed = _conf.FricReverseSpeed};
-		for (std::size_t i = 0; i < FricCount; ++i)
-		{
-			_fric[i].Update(_controlInfo.State, reverse, feedbacks[i], dtMs);
-		}
+	}
+	for (std::size_t i = 0; i < FricCount; ++i)
+	{
+		const FricCmd command{
+		    .Mode = _controlInfo.FricReversing ? FricState::Reverse : FricState::Running,
+		    .TargetSpeed = _controlInfo.FricReversing ? _fricReverseSpeed : targetSpeeds[i]
+		};
+		_fric[i].Update(_controlInfo.State, command, feedbacks[i], dtMs);
 	}
 }
 
@@ -201,5 +142,9 @@ float Shooter<FricCount>::GetFeedOutput() const
 {
 	return _feed.GetOutput();
 }
+
+template class Shooter<2>;
+template class Shooter<3>;
+template class Shooter<6>;
 
 } // namespace breeze::shooter

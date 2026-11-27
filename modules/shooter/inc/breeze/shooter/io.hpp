@@ -19,14 +19,26 @@
 namespace breeze::shooter
 {
 /**
+ * @brief 应用层下发的发射命令
+ *
+ */
+enum class ShooterCommand : std::uint8_t
+{
+	Sleep, ///< 卸力并复位控制状态
+	Idle,  ///< 唤醒并待命
+	Once,  ///< 进入该命令时请求单发
+	Repeat ///< 持续连发
+};
+
+/**
  * @brief 单个摩擦轮的设备反馈
  * @note 原样填写驱动返回的量, 不做方向换算:
  *       摩擦轮转速单位为 rpm, 极性与电机正转一致。
  */
 struct FricFeedback
 {
-	float Speed{};  ///< 转速(rpm), 电机正转为正
-	float Torque{}; ///< 电机输出力矩(N·m), 电机正转为正
+	float Speed{}; ///< 转速(rpm), 电机正转为正
+	bool Stuck{};  ///< 当前堵转状态, 由设备层更新与解除
 };
 
 /**
@@ -41,33 +53,7 @@ struct FeedFeedback
 {
 	float Speed{};  ///< 输出轴角速度(°/s), 电机正转为正
 	float Angle{};  ///< 拨盘轴角度 [0, 360), 电机正转方向递增, 单位为度
-	float Torque{}; ///< 电机输出力矩(N·m), 电机正转为正
-};
-
-/**
- * @brief 面向应用层的整机状态
- * @note 与内部状态机 ShootState 解耦: 内部状态可以增删, 这里的取值保持稳定.
- *
- */
-enum class ShooterStatus : std::uint8_t
-{
-	Sleep,    ///< 停机泄力
-	Spinning, ///< 摩擦轮加速中
-	Ready,    ///< 全部摩擦轮到速, 可发射
-	Shooting, ///< 发射中
-	Stuck,    ///< 卡弹
-	Fault,    ///< 故障, 只能 Reset() 解除
-};
-
-/**
- * @brief 发射模块的状态报告
- *
- */
-struct ShooterReport
-{
-	ShooterStatus Status{ShooterStatus::Sleep}; ///< 整机状态
-	float TargetSpeed{};                        ///< 当前摩擦轮目标转速(rpm)
-	bool FricReady{};                           ///< 所有摩擦轮已到速
+	bool Stuck{};   ///< 当前堵转状态, 由设备层更新与解除
 };
 
 } // namespace breeze::shooter

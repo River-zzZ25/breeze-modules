@@ -12,11 +12,9 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <etl/array.h>
-#include <etl/circular_buffer.h>
-#include <etl/delegate.h>
-#include <etl/optional.h>
 #include <etl/span.h>
 #include <etl/variant.h>
 
@@ -51,16 +49,6 @@ struct PidConfig
 };
 
 /**
- * @brief 摩擦轮堵转配置
- *
- */
-struct FricStuckConfig
-{
-	float TorqueThreshold{};       ///< 力矩幅值阈值(N·m), 比较绝对值, 不区分方向
-	float SpeedThreshold{};        ///< 转速幅值阈值(rpm)
-	std::uint16_t ConfirmCycles{}; ///< 连续满足条件的控制周期数; 必须不小于 1
-};
-/**
  * @brief 摩擦轮转速就绪配置
  *
  */
@@ -77,23 +65,9 @@ struct FricReadyConfig
  */
 struct FricConfig
 {
-	float InintialFricTargetSpeed{};              ///< 初始摩擦轮目标转速(rpm)
-	float LobInitialFricSpeed{};                  ///< 吊射初始摩擦轮转速(rpm)
-	MotorDirection Direction{};                   ///< 电机方向
-	PidConfig Pid{};                              ///< 电机pid配置
-	etl::optional<FricStuckConfig> StuckConfig{}; ///< 堵转配置
-	FricReadyConfig ReadyConfig{};                ///< 转速就绪配置
-};
-
-/**
- * @brief  堵转检测配置
- *
- */
-struct FeedStuckConfig
-{
-	float TorqueThreshold{};   ///< 堵转判定力矩阈值(N·m)
-	float SpeedThreshold{};    ///< 堵转判定速度阈值(°/s)
-	std::uint16_t ConfirmMs{}; ///< 堵转确认持续时间(ms)
+	MotorDirection Direction{};    ///< 电机方向
+	PidConfig Pid{};               ///< 电机pid配置
+	FricReadyConfig ReadyConfig{}; ///< 转速就绪配置
 };
 
 /**
@@ -140,6 +114,7 @@ struct FeedShootConfig
 	std::uint16_t HandleStuckReverseTimeout{}; ///< 处理堵转反转超时时间(ms)
 	std::uint16_t HandleStuckReloadTimeout{};  ///< 处理堵转复位重载超时时间(ms)
 	float PositionTolerance{};                 ///< 目标位置到位容差(度)
+	std::uint8_t RetryMaxCount{1};             ///< 一轮清堵允许的重载堵转次数, 取值 1~255
 };
 /**
  * @brief 拨盘配置结构体
@@ -151,51 +126,8 @@ struct FeedConfig
 	PidConfig PositionPid;                               ///< 位置环配置, 输入角度误差(°), 输出目标角速度(°/s)
 	PidConfig PositionSpeedPid;                          ///< 位置环的速度内环配置, 输出力矩(N·m)
 	PidConfig SpeedPid;                                  ///< 复位与连发使用的独立速度环配置, 输出力矩(N·m)
-	FeedStuckConfig Stuck;                               ///< 堵转配置
 	FeedPositionConfig Position{RelativeFeedPosition{}}; ///< 相对等距弹位或绝对单圈弹位表
 	FeedShootConfig Shoot;                               ///< 拨弹配置
-};
-
-/**
- * @brief 弹速自适应配置
- *
- * @note 用于后续按弹速反馈调整摩擦轮目标转速; 当前自适应控制逻辑尚未实现.
- *       理想区间包含两端; 欠速低于 IdealSpeedMin; 偏高介于 IdealSpeedMax 与 OverSpeedThreshold 之间;
- *       弹速达到 OverSpeedThreshold 时按超速处理; 任意非欠速样本清零连续欠速计数.
- */
-struct ShootSpeedAdaptConfig
-{
-	bool Enable{};                    ///< 是否启用弹速自适应
-	float IdealSpeedMin{};            ///< 理想弹速下限(m/s), 包含边界
-	float IdealSpeedMax{};            ///< 理想弹速上限(m/s), 包含边界
-	float OverSpeedThreshold{};       ///< 超速阈值(m/s), 包含边界, 大于 IdealSpeedMax
-	float FricSpeedMin{};             ///< 摩擦轮最小转速(rpm)
-	float FricSpeedMax{};             ///< 摩擦轮最大转速(rpm)
-	float OverSpeedAdjustment{};      ///< 达到超速阈值时立即降低的转速(rpm)
-	float LowSpeedAdjustment{};       ///< 连续欠速达到配置次数后增加的转速(rpm)
-	std::uint16_t LowSpeedMaxCount{}; ///< 触发加速所需的连续欠速次数
-	float HighSpeedAdjustment{};      ///< 偏高档比例降速的最大调整量(rpm)
-};
-
-/**
- * @brief 热量限制配置
- *
- * @note 两项检测由对应标志启用; 未填写的数值默认为零.
- *       热量阈值按 NoShootHeatValue、VeryLowHeatValue、LowHeatValue 从低到高配置.
- *       等于阈值时归入较低档; 剩余热量不大于 NoShootHeatValue 时禁止开始拨弹.
- *       连发停止时仍会向前对齐弹位, 停射阈值需预留该动作可能消耗的一发热量.
- */
-struct ShootHeatLimitConfig
-{
-	bool AllowShootCountEnable{};     ///< 是否启用剩余发弹量检测
-	bool HeatLimitEnable{};           ///< 是否启用热量限制
-	float FeedSpeedCoefficient{};     ///< 连发射频到拨盘角速度的换算系数((°/s)/Hz), 即每发转过的角度(°)
-	float HighHeatShootingFreq{};     ///< 剩余热量充足或未启用热量限制时的连发射频(Hz)
-	std::uint16_t LowHeatValue{};     ///< 剩余热量低档阈值
-	float LowHeatShootingFreq{};      ///< 剩余热量低档连发射频(Hz)
-	std::uint16_t VeryLowHeatValue{}; ///< 剩余热量极低档阈值
-	float VeryLowHeatShootingFreq{};  ///< 剩余热量极低档连发射频(Hz)
-	std::uint16_t NoShootHeatValue{}; ///< 剩余热量停止发射阈值
 };
 
 /**
@@ -209,8 +141,6 @@ struct ShooterConfig
 	etl::array<FricConfig, FricCount> FricConf{}; ///< 摩擦轮配置
 	float FricReverseSpeed{};                     ///< 整组清堵反转速度大小(rpm), 正值
 	FeedConfig FeedConf{};                        ///< 拨盘配置
-	ShootSpeedAdaptConfig SpeedAdaptConf{};       ///< 弹速自适应配置
-	ShootHeatLimitConfig HeatLimitConf{};         ///< 热量限制配置
 };
 
 } // namespace breeze::shooter

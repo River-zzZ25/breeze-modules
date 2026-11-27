@@ -12,11 +12,9 @@
 
 #pragma once
 
-#include "breeze/models/control.hpp"
 #include "config.hpp"
 #include "io.hpp"
 #include <cstddef>
-#include <cstdint>
 #include <etl/array.h>
 #include <ramen.hpp>
 
@@ -41,14 +39,12 @@ public:
 	 */
 	struct Input
 	{
-		ramen::Pushable<float> Tick;                          ///< 每次推送执行一个控制周期, 输入为实际间隔(ms)
-		ramen::Pushable<bool> Enable;                         ///< false 时在下一控制周期进入 Sleep 并卸力
-		ramen::Pushable<std::uint16_t> HeatValue;               ///< 热量值输入(计算出剩余热量后传入)
-		ramen::Pushable<std::uint16_t> AllowShootCount;         ///< 允许发弹量
-		ramen::Pushable<breeze::models::ShooterCmd> ShooterCmd; ///< 射击命令输入
-		ramen::Pushable<float> LatestShootSpeed;                ///< 最新弹速(m/s), 当前仅缓存, 自适应待接入
-		etl::array<ramen::Puller<breeze::shooter::FricFeedback>, FricCount> FricFeedback{}; ///< 逐轮原始反馈
-		ramen::Puller<breeze::shooter::FeedFeedback> FeedFeedback{}; ///< 拨盘原始反馈
+		ramen::Pushable<float> Tick;             ///< 每次推送执行一个控制周期, 输入为实际间隔(ms)
+		ramen::Pushable<ShooterCommand> Command; ///< 默认为 Sleep; 由应用层决定唤醒、待命或发射
+		ramen::Pushable<etl::array<float, FricCount>> FricTargetSpeeds; ///< 摩擦轮目标转速(rpm)，正值
+		ramen::Pushable<float> FeedTargetSpeed;                         ///< 连发目标角速度(°/s), 正值，为零时暂停连发；
+		etl::array<ramen::Puller<breeze::shooter::FricFeedback>, FricCount> FricFeedback{}; ///< 摩擦轮反馈
+		ramen::Puller<breeze::shooter::FeedFeedback> FeedFeedback{};                        ///< 拨盘反馈
 	};
 
 	/**
@@ -57,9 +53,8 @@ public:
 	 */
 	struct Output
 	{
-		etl::array<ramen::Pusher<float>, FricCount> FricOutput{}; ///< 逐轮力矩输出(N·m)
-		ramen::Pusher<float> FeedOutput{};                       ///< 拨盘力矩输出(N·m)
-		ramen::Pusher<breeze::shooter::ShooterReport> ShooterReport{}; ///< 状态报告预留端口, 当前不推送
+		etl::array<ramen::Pusher<float>, FricCount> FricOutput{}; ///< 摩擦轮力矩输出(N·m)
+		ramen::Pusher<float> FeedOutput{};                        ///< 拨盘力矩输出(N·m)
 	};
 
 	Input In;     ///< 输入接口
@@ -75,7 +70,7 @@ public:
 	/**
 	 * @brief 初始化内部控制, 每个对象在外部周期源启动前调用一次
 	 *
-	 * @note 不创建线程或启动周期源; 发射使能通过 In.Enable 输入.
+	 * @note 不创建线程或启动周期源; 唤醒、发射与休眠由 In.Command 决定.
 	 */
 	void Start();
 

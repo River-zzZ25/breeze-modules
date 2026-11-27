@@ -21,7 +21,6 @@ namespace breeze::shooter
 Fric::Fric(const FricConfig& config)
     : _config(config),
       _speedPid(MakePid(config.Pid)),
-      _controlInfo{},
       _info{},
       _output(0.0f)
 {
@@ -30,19 +29,11 @@ Fric::Fric(const FricConfig& config)
 	    _config.Pid.InputDeadband >= 0.0f && _config.Pid.MaxOutput >= 0.0f && _config.Pid.MaxIntegral >= 0.0f &&
 	    _config.Pid.InputIntegralSeparation >= 0.0f
 	);
-	if (_config.StuckConfig.has_value())
-	{
-		assert(
-		    _config.StuckConfig->TorqueThreshold >= 0.0f && _config.StuckConfig->SpeedThreshold >= 0.0f &&
-		    _config.StuckConfig->ConfirmCycles >= 1
-		);
-	}
 }
 
 void Fric::Update(ShootState shootState, const FricCmd& command, const FricFeedback& feedback, float dtMs)
 {
 	_info.Speed = feedback.Speed;
-	_info.Torque = feedback.Torque;
 
 	if (shootState == ShootState::Sleep)
 	{
@@ -50,15 +41,12 @@ void Fric::Update(ShootState shootState, const FricCmd& command, const FricFeedb
 		return;
 	}
 
-	if (command.Mode != _controlInfo.LastMode)
+	if (command.Mode != _info.Mode)
 	{
 		_speedPid.Reset();
-		_controlInfo = {};
-		_controlInfo.LastMode = command.Mode;
 	}
-	_info.Mode = _controlInfo.Stuck ? FricState::Stuck : command.Mode;
+	_info.Mode = command.Mode;
 
-	StuckCheck(command);
 	ReadyCheck(command);
 	UpdateOutput(command, dtMs);
 }
@@ -66,40 +54,9 @@ void Fric::Update(ShootState shootState, const FricCmd& command, const FricFeedb
 void Fric::Reset()
 {
 	_speedPid.Reset();
-	_controlInfo = {};
 	_info.Mode = FricState::Sleep;
 	_info.Ready = false;
 	_output = 0.0f;
-}
-
-void Fric::StuckCheck(const FricCmd& command)
-{
-	if (_controlInfo.Stuck || !_config.StuckConfig.has_value() || _info.Mode != FricState::Running ||
-	    command.TargetSpeed <= 0.0f)
-	{
-		if (!_controlInfo.Stuck)
-		{
-			_controlInfo.StallCycles = 0;
-		}
-		return;
-	}
-
-	const auto& stuckConfig = *_config.StuckConfig;
-	const bool overTorque = std::abs(_info.Torque) > stuckConfig.TorqueThreshold;
-	const bool underSpeed = std::abs(_info.Speed) < stuckConfig.SpeedThreshold;
-	if (!overTorque || !underSpeed)
-	{
-		_controlInfo.StallCycles = 0;
-		return;
-	}
-
-	++_controlInfo.StallCycles;
-
-	if (_controlInfo.StallCycles >= stuckConfig.ConfirmCycles)
-	{
-		_controlInfo.Stuck = true;
-		_info.Mode = FricState::Stuck;
-	}
 }
 
 void Fric::ReadyCheck(const FricCmd& command)

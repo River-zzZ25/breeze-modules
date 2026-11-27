@@ -21,8 +21,7 @@ namespace breeze::shooter
 namespace
 {
 static_assert(
-    std::atomic<bool>::is_always_lock_free && std::atomic<std::uint16_t>::is_always_lock_free &&
-    std::atomic<breeze::models::FiringIntent>::is_always_lock_free && std::atomic<float>::is_always_lock_free
+	std::atomic<ShooterCommand>::is_always_lock_free && std::atomic<float>::is_always_lock_free
 );
 } // namespace
 
@@ -30,11 +29,9 @@ template <std::size_t FricCount>
 struct Module<FricCount>::Impl
 {
 	Shooter<FricCount> Controller;
-	std::atomic<bool> Enabled{};
-	std::atomic<std::uint16_t> RemainingHeat{};
-	std::atomic<std::uint16_t> AllowShootCount{};
-	std::atomic<breeze::models::FiringIntent> Intent{breeze::models::FiringIntent::Idle};
-	std::atomic<float> LatestShootSpeed{};
+	std::atomic<ShooterCommand> Command{ShooterCommand::Sleep};
+	etl::array<std::atomic<float>, FricCount> FricTargetSpeeds{};
+	std::atomic<float> FeedTargetSpeed{};
 	explicit Impl(const ShooterConfig<FricCount>& config)
 	    : Controller(config)
 	{}
@@ -46,13 +43,12 @@ struct Module<FricCount>::Impl
 	void Update(Module& module, float dtMs)
 	{
 		ShooterInput<FricCount> input{
-		    .EnableInfo =
-		        {.Intent = Intent.load(std::memory_order_relaxed), .Enable = Enabled.load(std::memory_order_relaxed)},
-		    .RemainingHeat = RemainingHeat.load(std::memory_order_relaxed),
-		    .AllowShootCount = AllowShootCount.load(std::memory_order_relaxed)
+		    .Command = Command.load(std::memory_order_relaxed),
+		    .FeedTargetSpeed = FeedTargetSpeed.load(std::memory_order_relaxed)
 		};
 		for (std::size_t i = 0; i < FricCount; ++i)
 		{
+			input.FricTargetSpeeds[i] = FricTargetSpeeds[i].load(std::memory_order_relaxed);
 			module.In.FricFeedback[i](input.FricFeedbacks[i]);
 		}
 		module.In.FeedFeedback(input.Feed);
@@ -67,17 +63,18 @@ struct Module<FricCount>::Impl
 
 template <std::size_t FricCount>
 Module<FricCount>::Module(const ShooterConfig<FricCount>& config)
-    : In{.Tick = [this](const float& dtMs) { _impl->Update(*this, dtMs); },
-	     .Enable = [this](const bool& enabled) { _impl->Enabled.store(enabled, std::memory_order_relaxed); },
-	     .HeatValue =
-	         [this](const std::uint16_t& value) { _impl->RemainingHeat.store(value, std::memory_order_relaxed); },
-	     .AllowShootCount =
-	         [this](const std::uint16_t& value) { _impl->AllowShootCount.store(value, std::memory_order_relaxed); },
-	     .ShooterCmd = [this](
-                           const breeze::models::ShooterCmd& command
-                       ) { _impl->Intent.store(command.Intent, std::memory_order_relaxed); },
-	     .LatestShootSpeed =
-	         [this](const float& speed) { _impl->LatestShootSpeed.store(speed, std::memory_order_relaxed); }}
+    : In{
+          .Tick = [this](const float& dtMs) { _impl->Update(*this, dtMs); },
+          .Command = [this](const ShooterCommand& command) { _impl->Command.store(command, std::memory_order_relaxed); },
+          .FricTargetSpeeds = [this](const etl::array<float, FricCount>& speeds) {
+	          for (std::size_t i = 0; i < FricCount; ++i)
+	          {
+		          _impl->FricTargetSpeeds[i].store(speeds[i], std::memory_order_relaxed);
+	          }
+          },
+          .FeedTargetSpeed =
+              [this](const float& speed) { _impl->FeedTargetSpeed.store(speed, std::memory_order_relaxed); }
+      }
 {
 	static Impl impl(config);
 	_impl = &impl;
